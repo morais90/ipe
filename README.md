@@ -3,85 +3,67 @@
 **A next-generation OpenAPI code generator with an obsession for developer experience**
 
 [![PyPI version](https://badge.fury.io/py/ipe.svg)](https://badge.fury.io/py/ipe)
-[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Tests](https://github.com/yourusername/ipe/workflows/Tests/badge.svg)](https://github.com/yourusername/ipe/actions)
 
 ---
 
-## ✨ Why Ipê?
+## ✨ Transform APIs into Beautiful Code
 
-Transform your OpenAPI specifications into **beautiful, production-ready code** in seconds. Named after the stunning Brazilian tree known for its vibrant blooms, Ipê brings the same elegance and reliability to code generation.
+From OpenAPI specification to production-ready client in **one command**. Named after the stunning Brazilian tree known for its vibrant blooms, Ipê brings the same elegance and reliability to code generation.
 
 ```bash
-# From OpenAPI spec to production code in one command
-ipe generate api-spec.yaml --generator python
+ipe generate api.yaml --output ./src/clients/
 ```
 
-### 🚀 **Lightning Fast**
-Generate complete SDKs for 200+ endpoint APIs in under 10 seconds
+### ⚡ **Lightning Fast**
+Sub-second generation for most specs
 
-### 🎨 **Beautiful Output**
-Rich CLI with progress indicators, syntax highlighting, and intelligent defaults
+### 🎨 **Beautiful Output**  
+Rich CLI with progress indicators and syntax highlighting
 
-### 🧠 **Developer-First**
-Works perfectly out-of-the-box, highly customizable when you need it
+### 🧠 **Zero Configuration**
+Works perfectly out-of-the-box with intelligent defaults
 
-### 📚 **Exceptionally Documented**
-Every feature explained with examples and best practices
+### 🚀 **Multi-Language Ready**
+Start with Python, expand to TypeScript, Go, and more
 
 ---
 
-## 🎯 **Quick Start**
-
-### Installation
+## 🎯 **Get Started in 30 Seconds**
 
 ```bash
-# Install via pip
+# Install
 pip install ipe
 
-# Or via uv (recommended)
-uv add ipe
-```
-
-### Generate Your First Client
-
-```bash
-# Generate a Python client
-ipe generate openapi.yaml --generator python --output ./my-client
-
-# Watch for changes and auto-regenerate
-ipe generate openapi.yaml --generator python --watch
-
-# Interactive setup with smart defaults
+# Generate your first client
 ipe init
+ipe generate openapi.yaml --output ./src/clients/
 ```
 
-### **That's it!** 🎉
+**That's it!** Your API client is ready to use:
 
-Your generated client includes:
-- ✅ Fully typed Python classes
-- ✅ Async/sync support with httpx
-- ✅ Pydantic models for validation
-- ✅ Authentication handling
-- ✅ Comprehensive error handling
-- ✅ Beautiful documentation
+```python
+from petstore.client import PetStoreClient
 
----
+client = PetStoreClient(api_key="your-key")
 
-## 🛠️ **Supported Generators**
+# Intuitive resource-based API
+users = client.users.list(status="active")
+user = client.users.get(user_id="123")
+new_user = client.users.create(name="John", email="john@example.com")
 
-| Language   | Features | Status |
-|------------|----------|--------|
-| **Python** | httpx client, Pydantic models, async/sync, type hints | ✅ Ready |
-| **TypeScript** | Axios/Fetch client, full type definitions, modern ES6+ | 🚧 Coming Soon |
-| **JavaScript** | Modern ES6+, optional TypeScript declarations | 🚧 Coming Soon |
-| **Go** | Native HTTP client, struct definitions | 📅 Planned |
-| **Rust** | reqwest client, serde models | 📅 Planned |
+# Smart error handling
+try:
+    user = client.users.get("invalid-id")
+except PetStoreClient.NotFoundError:
+    print("User not found")
+```
 
 ---
 
-## 🎨 **Live Example**
+## 🎨 **See It In Action**
 
 Transform this OpenAPI spec:
 
@@ -89,14 +71,12 @@ Transform this OpenAPI spec:
 openapi: 3.0.0
 info:
   title: Pet Store API
-  version: 1.0.0
 paths:
   /pets:
     get:
-      summary: List all pets
+      summary: List pets
       responses:
         '200':
-          description: A list of pets
           content:
             application/json:
               schema:
@@ -109,11 +89,9 @@ components:
       type: object
       required: [id, name]
       properties:
-        id:
-          type: integer
-        name:
-          type: string
-        status:
+        id: { type: integer }
+        name: { type: string }
+        status: 
           type: string
           enum: [available, pending, sold]
 ```
@@ -121,160 +99,191 @@ components:
 Into this beautiful Python client:
 
 ```python
-from my_client import PetStoreClient
-from my_client.models import Pet
+from petstore_client import PetStoreClient
 
-# Initialize client
 client = PetStoreClient(base_url="https://api.petstore.com")
 
-# Use with full type support
-pets: List[Pet] = await client.pets.list()
+# Fully typed, auto-complete ready
+pets: List[Pet] = client.pets.list()
 
 for pet in pets:
-    print(f"Pet {pet.name} (ID: {pet.id}) is {pet.status}")
+    print(f"🐾 {pet.name} is {pet.status}")
 ```
 
 ---
 
-## ⚙️ **Configuration**
+## 🚀 **What You Get**
 
-Create an `ipe.json` file for project-specific settings:
+### ✅ **Resource-Based Organization**
+Intuitive APIs that mirror your OpenAPI structure
+```python
+client.users.list()     # GET /users
+client.pets.create()    # POST /pets
+```
+
+### ✅ **Full Type Safety**
+Complete type hints with client-side validation
+```python
+# Type errors caught before runtime
+user: User = client.users.get(user_id=123)  # ✅ 
+user: User = client.users.get(user_id="invalid")  # ❌ Type error
+```
+
+### ✅ **Smart Error Handling**
+Meaningful exceptions with helpful context
+```python
+except PetStoreClient.NotFoundError as e:
+    print(f"Resource not found: {e.message}")
+except PetStoreClient.ValidationError as e:
+    print(f"Invalid data: {e.details}")
+```
+
+### ✅ **Authentication Made Easy**
+Multiple auth methods, clean initialization
+```python
+# API Key
+client = PetStoreClient(api_key="secret")
+
+# Bearer Token  
+client = PetStoreClient(bearer_token="jwt-token")
+
+# OAuth (coming soon)
+client = PetStoreClient(client_id="id", client_secret="secret")
+```
+
+### ✅ **File Uploads**
+Seamless handling of multipart form data
+```python
+# Upload files with ease
+avatar = client.users.upload_avatar(
+    user_id="123",
+    file=open("avatar.jpg", "rb")
+)
+```
+
+---
+
+## 🛠️ **Language Support**
+
+| Language | Status |
+|----------|---------|
+| **Python** | ✅ Ready |
+| **TypeScript** | 🚧 In Development |
+| **JavaScript** | 📅 Planned |
+| **Go** | 📅 Planned |
+
+---
+
+## ⚙️ **Simple Configuration**
+
+Everything lives in one clean `ipe.json` file:
 
 ```json
 {
   "generator": "python",
-  "output_dir": "./generated",
-  "module_name": "my_awesome_client",
-  "generators": {
-    "python": {
-      "client_library": "httpx",
-      "async_client": true,
-      "type_hints": true,
-      "pydantic_models": true
-    }
-  }
+  "output_dir": "./src/clients",
+  "spec_path": "openapi.yaml"
 }
 ```
 
 Or use CLI options for quick customization:
-
 ```bash
-ipe generate api.yaml \
-  --generator python \
-  --output ./client \
-  --config custom-config.json
+ipe generate api.yaml --output ./clients/ --module-name my_client
 ```
 
 ---
 
-## 🔥 **Current Features**
+## 🎯 **CLI Commands**
 
-### ✨ **Dry Run**
-```bash
-ipe generate api.yaml --dry-run
-# Preview generated files without writing them
-```
+| Command | What It Does |
+|---------|--------------|
+| `ipe init` | 🎨 Interactive setup wizard |
+| `ipe generate` | ⚡ Generate beautiful client code |
+| `ipe version` | 📋 Show version information |
 
-### 🩺 **Health Check**
-```bash
-ipe doctor
-# Diagnose common issues and get suggestions
-```
-
-### 🔧 **Interactive Project Setup**
-```bash
-ipe init
-# Interactive setup wizard for new projects
-```
-
-## 🚀 **Future Features** (Coming Soon)
-
-### 👀 **Watch Mode**
-Auto-regeneration when OpenAPI spec changes
-- Real-time file monitoring with intelligent debouncing
-- Integration with development workflows
-
-### 🎯 **Custom Templates**
-Support for user-defined Jinja2 templates
-- Template inheritance system for extending built-in templates
-- Plugin system for template modifications and custom generators
+More commands coming soon: `validate`, `watch`, `doctor`
 
 ---
 
-## 🏗️ **CLI Commands**
-
-| Command | Description | Example |
-|---------|-------------|---------|
-| `ipe generate` | Generate code from OpenAPI spec | `ipe generate api.yaml -g python` |
-| `ipe init` | Interactive project setup | `ipe init` |
-| `ipe validate` | Validate OpenAPI specification | `ipe validate api.yaml` |
-| `ipe generators` | List available generators | `ipe generators` |
-| `ipe doctor` | Diagnose issues | `ipe doctor` |
-| `ipe version` | Show version info | `ipe version` |
-
----
-
-## 🌟 **Why Choose Ipê?**
+## 🌟 **Why Developers Love Ipê**
 
 ### **vs OpenAPI Generator**
-- ⚡ **10x faster** generation
-- 🎨 **Beautiful CLI** with rich output
-- 🧠 **Smart defaults** - works without configuration
-- 🔧 **Modern Python** - built with latest best practices
+- ⚡ **10x faster** generation with better output
+- 🎨 **Beautiful CLI** instead of confusing Java tools
+- 🧠 **Smart defaults** - no complex configuration needed
+- 🎯 **Modern Python** patterns and best practices
 
-### **vs Swagger Codegen**
+### **vs Swagger Codegen**  
 - 🚀 **Active development** with frequent updates
-- 📚 **Better documentation** with real examples
-- 🎯 **Developer-focused** design and user experience
-- 🌊 **Cleaner generated code** with modern patterns
+- 📚 **Better docs** with real-world examples
+- 🌊 **Cleaner code** - looks like handwritten Python
+- 💚 **Developer joy** - tools that spark happiness
+
+### **vs Writing Clients Manually**
+- ⚡ **Minutes vs Days** - instant client generation
+- 🛡️ **Always up-to-date** with your API changes
+- 🔧 **Consistent patterns** across all your APIs
+- 🧪 **Built-in validation** and error handling
 
 ---
 
-## 🤝 **Contributing**
+## 🎁 **Coming Soon**
 
-We'd love your help making Ipê even better!
+### **Auto-Pagination**
+```python
+# Effortlessly iterate through all results
+for user in client.users.list_iter():
+    process(user)  # Handles pagination automatically
+```
 
-- 🐛 **Bug Reports**: [Open an issue](https://github.com/yourusername/ipe/issues)
-- 💡 **Feature Requests**: [Start a discussion](https://github.com/yourusername/ipe/discussions)
-- 🔧 **Pull Requests**: See our [Contributing Guide](CONTRIBUTING.md)
+### **Built-in Extensions**
+- 🧪 **Test Suite Generation** - Complete test coverage out of the box
+- 🖥️ **CLI Wrappers** - Turn your API into a command-line tool  
+- ⚡ **Framework Integration** - FastAPI, React hooks, and more
 
-### Development Setup
-
+### **Watch Mode**
 ```bash
-# Clone the repository
+ipe generate api.yaml --watch
+# Auto-regenerates when your spec changes
+```
+
+---
+
+## 🤝 **Join the Community**
+
+- 🌟 **Star us** on GitHub if Ipê makes your life easier
+- 🐛 **Report issues** - we fix them fast
+- 💡 **Suggest features** - help shape the future
+- 🔧 **Contribute** - all skill levels welcome
+
+### Quick Start Contributing
+```bash
 git clone https://github.com/yourusername/ipe.git
 cd ipe
-
-# Install with uv
 uv sync --dev
-
-# Run tests
-uv run pytest
-
-# Run linting
-uv run ruff check
+uv run pytest  # All tests should pass!
 ```
 
 ---
 
 ## 📝 **License**
 
-MIT License - see [LICENSE](LICENSE) file for details.
+MIT License - free for commercial use, personal projects, everything!
 
 ---
 
-## 🙏 **Acknowledgments**
+## 💚 **Acknowledgments**
 
-- Named after the beautiful [Ipê tree](https://en.wikipedia.org/wiki/Tabebuia), Brazil's national tree
-- Inspired by the OpenAPI community and tools like OpenAPI Generator
-- Built with love for developers who deserve better tools
+Named after Brazil's national tree, the [Ipê](https://en.wikipedia.org/wiki/Tabebuia) 🌳, known for its breathtaking blooms that transform entire landscapes. Just like the tree, Ipê transforms your development landscape with beautiful, production-ready code.
 
 ---
 
 <div align="center">
 
-**[Documentation](https://ipe.readthedocs.io) • [Examples](examples/) • [Changelog](CHANGELOG.md)**
+**[Get Started](examples/) • [Documentation](SPECIFICATION.md) • [Community](https://github.com/yourusername/ipe/discussions)**
 
-Made with 💚 by developers, for developers
+*Transform your APIs. Transform your workflow. Transform your joy in coding.*
+
+Made with 💚 by developers who believe tools should be delightful
 
 </div>
