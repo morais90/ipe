@@ -2,7 +2,7 @@
 
 import sys
 from types import TracebackType
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 from rich.traceback import install
@@ -47,7 +47,7 @@ def version_callback(value: bool) -> None:
 @app.callback()
 def main(
     version: Annotated[
-        Optional[bool],
+        bool | None,
         typer.Option(
             "--version",
             "-V",
@@ -74,7 +74,7 @@ def version() -> None:
 def handle_exception(
     exc_type: type[BaseException],
     exc_value: BaseException,
-    exc_traceback: Optional[TracebackType],
+    exc_traceback: TracebackType | None,
 ) -> None:
     """Handle uncaught exceptions with beautiful error formatting.
 

@@ -1,6 +1,5 @@
-from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from ipe import __version__
 from ipe.core.config import IpeConfig
@@ -35,7 +34,7 @@ class SpecAnalyzer:
             auth_schemes=auth_schemes,
             resources=_build_resources(operations),
             module_name=config.module_name or _derive_module_name(spec.info.title),
-            generated_at=datetime.now(tz=timezone.utc).isoformat(),
+            generated_at=datetime.now(tz=UTC).isoformat(),
             ipe_version=__version__,
             generator_config=config.targets.get(config.target, {}),
         )

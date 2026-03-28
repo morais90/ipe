@@ -1,6 +1,6 @@
 """Rich console utilities for beautiful CLI output."""
 
-from typing import Any, Optional
+from typing import Any
 
 from rich.console import Console
 from rich.panel import Panel
@@ -18,7 +18,7 @@ class IpeConsole:
     def __init__(self) -> None:
         """Initialize the console with Rich styling."""
         self.console = Console()
-        self._progress: Optional[Progress] = None
+        self._progress: Progress | None = None
 
     def print_header(self) -> None:
         """Print the Ipê header with branding."""
@@ -87,7 +87,7 @@ class IpeConsole:
         self.console.print(f"⚠️  {message}", style="bold yellow")
 
     def print_validation_error(
-        self, error_msg: str, suggestion: Optional[str] = None
+        self, error_msg: str, suggestion: str | None = None
     ) -> None:
         """Print a detailed validation error with helpful formatting.
 

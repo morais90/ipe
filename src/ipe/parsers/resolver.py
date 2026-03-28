@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 import copy
 from typing import Any
@@ -45,7 +44,7 @@ def _resolve_node(
     seen_refs: set[str],
     cache: dict[str, Any],
 ) -> Any:
-    if not isinstance(node, (dict, list)):
+    if not isinstance(node, dict | list):
         return node
 
     if isinstance(node, list):

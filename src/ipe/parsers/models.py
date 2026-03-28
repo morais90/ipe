@@ -4,7 +4,6 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
-from typing_extensions import TypeAlias
 
 
 class OpenAPIBaseModel(BaseModel):
@@ -234,7 +233,7 @@ class Info(OpenAPIBaseModel):
 # Operation.callbacks references PathItem, PathItem references Operation.
 # model_rebuild() at module end resolves this.
 
-Callback: TypeAlias = "dict[str, PathItem]"
+type Callback = dict[str, PathItem]
 
 
 class Components(OpenAPIBaseModel):

@@ -3,7 +3,7 @@
 import json
 import keyword
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -31,20 +31,20 @@ class IpeConfig(BaseModel):
     output_dir: Path = Field(
         default=Path("./output"), description="Output directory for generated code"
     )
-    module_name: Optional[str] = Field(
+    module_name: str | None = Field(
         default=None, description="Name of the generated module"
     )
     spec_path: str = Field(default="", description="Path to OpenAPI specification")
     targets: dict[str, dict[str, Any]] = Field(
         default_factory=dict, description="Target-specific configuration"
     )
-    template_dir: Optional[Path] = Field(
+    template_dir: Path | None = Field(
         default=None, description="Custom template directory"
     )
 
     @field_validator("module_name")
     @classmethod
-    def validate_module_name(cls, v: Optional[str]) -> Optional[str]:
+    def validate_module_name(cls, v: str | None) -> str | None:
         """Validate module name is a valid Python identifier.
 
         Parameters
@@ -83,7 +83,7 @@ class IpeConfig(BaseModel):
 
     @field_validator("template_dir", mode="before")
     @classmethod
-    def coerce_template_dir(cls, v: Any) -> Optional[Path]:
+    def coerce_template_dir(cls, v: Any) -> Path | None:
         """Ensure template directory is a Path or None."""
         if v is None:
             return None
@@ -133,7 +133,7 @@ def load_config(config_path: Path) -> IpeConfig:
 def create_default_config(
     spec_path: str = "",
     output_dir: str = "./output",
-    module_name: Optional[str] = None,
+    module_name: str | None = None,
 ) -> IpeConfig:
     """Create a configuration with intelligent defaults.
 

@@ -1,11 +1,5 @@
-from __future__ import annotations
-
-from typing import TYPE_CHECKING
-
 from ipe.core.exceptions import ConfigurationError
-
-if TYPE_CHECKING:
-    from ipe.targets.base import LanguageTarget
+from ipe.targets.base import LanguageTarget
 
 
 class TargetRegistry:

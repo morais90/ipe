@@ -1,12 +1,12 @@
-from typing import Any, Optional
+from typing import Any
 
 
 class IpeError(Exception):
     def __init__(
         self,
         message: str,
-        suggestion: Optional[str] = None,
-        details: Optional[dict[str, Any]] = None,
+        suggestion: str | None = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         self.message = message
         self.suggestion = suggestion
@@ -26,9 +26,9 @@ class ConfigurationError(IpeError):
     def __init__(
         self,
         message: str,
-        suggestion: Optional[str] = None,
-        config_path: Optional[str] = None,
-        field: Optional[str] = None,
+        suggestion: str | None = None,
+        config_path: str | None = None,
+        field: str | None = None,
     ) -> None:
         details: dict[str, Any] = {}
         if config_path:
@@ -43,10 +43,10 @@ class ValidationError(IpeError):
     def __init__(
         self,
         message: str,
-        suggestion: Optional[str] = None,
-        location: Optional[str] = None,
-        line_number: Optional[int] = None,
-        validation_errors: Optional[list[str]] = None,
+        suggestion: str | None = None,
+        location: str | None = None,
+        line_number: int | None = None,
+        validation_errors: list[str] | None = None,
     ) -> None:
         details: dict[str, Any] = {}
         if location:
@@ -63,10 +63,10 @@ class GenerationError(IpeError):
     def __init__(
         self,
         message: str,
-        suggestion: Optional[str] = None,
-        output_path: Optional[str] = None,
-        template_name: Optional[str] = None,
-        target: Optional[str] = None,
+        suggestion: str | None = None,
+        output_path: str | None = None,
+        template_name: str | None = None,
+        target: str | None = None,
     ) -> None:
         details: dict[str, Any] = {}
         if output_path:
@@ -83,10 +83,10 @@ class NetworkError(IpeError):
     def __init__(
         self,
         message: str,
-        suggestion: Optional[str] = None,
-        url: Optional[str] = None,
-        status_code: Optional[int] = None,
-        response_text: Optional[str] = None,
+        suggestion: str | None = None,
+        url: str | None = None,
+        status_code: int | None = None,
+        response_text: str | None = None,
     ) -> None:
         details: dict[str, Any] = {}
         if url:
@@ -103,10 +103,10 @@ class UnsupportedFeatureError(IpeError):
     def __init__(
         self,
         message: str,
-        suggestion: Optional[str] = None,
-        feature: Optional[str] = None,
-        version: Optional[str] = None,
-        required_version: Optional[str] = None,
+        suggestion: str | None = None,
+        feature: str | None = None,
+        version: str | None = None,
+        required_version: str | None = None,
     ) -> None:
         details: dict[str, Any] = {}
         if feature:
@@ -123,10 +123,10 @@ class TemplateError(IpeError):
     def __init__(
         self,
         message: str,
-        suggestion: Optional[str] = None,
-        template_path: Optional[str] = None,
-        error_line: Optional[int] = None,
-        template_error: Optional[str] = None,
+        suggestion: str | None = None,
+        template_path: str | None = None,
+        error_line: int | None = None,
+        template_error: str | None = None,
     ) -> None:
         details: dict[str, Any] = {}
         if template_path:
