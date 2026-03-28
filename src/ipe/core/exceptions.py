@@ -132,7 +132,7 @@ class GenerationError(IpeError):
         suggestion: Optional[str] = None,
         output_path: Optional[str] = None,
         template_name: Optional[str] = None,
-        generator: Optional[str] = None,
+        target: Optional[str] = None,
     ) -> None:
         """Initialize generation error with context."""
         details: dict[str, Any] = {}
@@ -140,8 +140,8 @@ class GenerationError(IpeError):
             details["output_path"] = output_path
         if template_name:
             details["template_name"] = template_name
-        if generator:
-            details["generator"] = generator
+        if target:
+            details["target"] = target
 
         super().__init__(message, suggestion, details)
 

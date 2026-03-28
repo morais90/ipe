@@ -1,5 +1,3 @@
-"""Tests for exception hierarchy."""
-
 import pytest
 
 from ipe.core.exceptions import (
@@ -14,7 +12,7 @@ from ipe.core.exceptions import (
 
 
 class TestIpeError:
-    def test_basic_error_message(self):
+    def test_basic_error(self):
         error = IpeError("Something went wrong")
 
         assert str(error) == "Something went wrong"
@@ -30,14 +28,11 @@ class TestIpeError:
         assert "Suggestion: Try again" in str(error.args[0])
 
     def test_error_with_details(self):
-        details = {"key": "value", "number": 42}
-        error = IpeError("Test error", details=details)
+        error = IpeError("Test error", details={"key": "value", "number": 42})
 
-        assert error.details == details
-        assert error.details["key"] == "value"
-        assert error.details["number"] == 42
+        assert error.details == {"key": "value", "number": 42}
 
-    def test_error_inheritance(self):
+    def test_inherits_from_exception(self):
         error = IpeError("Test")
 
         assert isinstance(error, Exception)
@@ -45,86 +40,77 @@ class TestIpeError:
 
 
 class TestConfigurationError:
-    def test_basic_configuration_error(self):
+    def test_basic_error(self):
         error = ConfigurationError("Config file not found")
 
         assert isinstance(error, IpeError)
         assert str(error) == "Config file not found"
 
-    def test_configuration_error_with_path(self):
+    def test_error_with_full_context(self):
         error = ConfigurationError(
-            "Invalid JSON", "Check syntax", config_path="./ipe.json"
+            "Invalid JSON", "Check syntax", config_path="./ipe.json", field="target"
         )
 
-        assert error.details["config_path"] == "./ipe.json"
         assert error.suggestion == "Check syntax"
-
-    def test_configuration_error_with_field(self):
-        error = ConfigurationError("Missing field", field="module_name")
-
-        assert error.details["field"] == "module_name"
+        assert error.details == {"config_path": "./ipe.json", "field": "target"}
 
 
 class TestValidationError:
-    def test_basic_validation_error(self):
+    def test_basic_error(self):
         error = ValidationError("Invalid OpenAPI spec")
 
         assert isinstance(error, IpeError)
         assert str(error) == "Invalid OpenAPI spec"
 
-    def test_validation_error_with_location(self):
+    def test_error_with_location(self):
         error = ValidationError(
-            "Missing field", "Add the field", location="$.info.title"
+            "Missing field", "Add the field", location="$.info.title", line_number=42
         )
 
-        assert error.details["location"] == "$.info.title"
         assert error.suggestion == "Add the field"
+        assert error.details == {"location": "$.info.title", "line_number": 42}
 
-    def test_validation_error_with_line_number(self):
-        error = ValidationError("Syntax error", line_number=42)
-
-        assert error.details["line_number"] == 42
-
-    def test_validation_error_with_multiple_errors(self):
+    def test_error_with_multiple_errors(self):
         validation_errors = ["Error 1", "Error 2", "Error 3"]
         error = ValidationError(
             "Multiple validation errors", validation_errors=validation_errors
         )
 
-        assert error.details["validation_errors"] == validation_errors
-        assert len(error.details["validation_errors"]) == 3
+        assert error.details == {"validation_errors": validation_errors}
 
 
 class TestGenerationError:
-    def test_basic_generation_error(self):
+    def test_basic_error(self):
         error = GenerationError("Generation failed")
 
         assert isinstance(error, IpeError)
         assert str(error) == "Generation failed"
 
-    def test_generation_error_with_context(self):
+    def test_error_with_full_context(self):
         error = GenerationError(
             "Cannot write files",
             "Check permissions",
             output_path="./output",
             template_name="client.py.jinja",
-            generator="python",
+            target="python",
         )
 
-        assert error.details["output_path"] == "./output"
-        assert error.details["template_name"] == "client.py.jinja"
-        assert error.details["generator"] == "python"
         assert error.suggestion == "Check permissions"
+        assert error.details == {
+            "output_path": "./output",
+            "template_name": "client.py.jinja",
+            "target": "python",
+        }
 
 
 class TestNetworkError:
-    def test_basic_network_error(self):
+    def test_basic_error(self):
         error = NetworkError("Connection failed")
 
         assert isinstance(error, IpeError)
         assert str(error) == "Connection failed"
 
-    def test_network_error_with_http_context(self):
+    def test_error_with_http_context(self):
         error = NetworkError(
             "HTTP 404 Not Found",
             "Check the URL",
@@ -133,20 +119,22 @@ class TestNetworkError:
             response_text="Page not found",
         )
 
-        assert error.details["url"] == "https://api.example.com/openapi.yaml"
-        assert error.details["status_code"] == 404
-        assert error.details["response_text"] == "Page not found"
         assert error.suggestion == "Check the URL"
+        assert error.details == {
+            "url": "https://api.example.com/openapi.yaml",
+            "status_code": 404,
+            "response_text": "Page not found",
+        }
 
 
 class TestUnsupportedFeatureError:
-    def test_basic_unsupported_feature_error(self):
+    def test_basic_error(self):
         error = UnsupportedFeatureError("Feature not supported")
 
         assert isinstance(error, IpeError)
         assert str(error) == "Feature not supported"
 
-    def test_unsupported_feature_error_with_version_context(self):
+    def test_error_with_version_context(self):
         error = UnsupportedFeatureError(
             "OpenAPI 2.0 not supported",
             "Upgrade to OpenAPI 3.0+",
@@ -155,20 +143,22 @@ class TestUnsupportedFeatureError:
             required_version="3.0+",
         )
 
-        assert error.details["feature"] == "Swagger 2.0"
-        assert error.details["version"] == "2.0"
-        assert error.details["required_version"] == "3.0+"
         assert error.suggestion == "Upgrade to OpenAPI 3.0+"
+        assert error.details == {
+            "feature": "Swagger 2.0",
+            "version": "2.0",
+            "required_version": "3.0+",
+        }
 
 
 class TestTemplateError:
-    def test_basic_template_error(self):
+    def test_basic_error(self):
         error = TemplateError("Template error")
 
         assert isinstance(error, IpeError)
         assert str(error) == "Template error"
 
-    def test_template_error_with_context(self):
+    def test_error_with_full_context(self):
         error = TemplateError(
             "Syntax error in template",
             "Fix the template syntax",
@@ -177,28 +167,24 @@ class TestTemplateError:
             template_error="Undefined variable 'foo'",
         )
 
-        assert error.details["template_path"] == "./templates/client.py.jinja"
-        assert error.details["error_line"] == 25
-        assert error.details["template_error"] == "Undefined variable 'foo'"
         assert error.suggestion == "Fix the template syntax"
+        assert error.details == {
+            "template_path": "./templates/client.py.jinja",
+            "error_line": 25,
+            "template_error": "Undefined variable 'foo'",
+        }
 
 
 class TestExceptionHierarchy:
-    def test_all_exceptions_inherit_from_ipe_error(self):
-        exceptions = [
-            ConfigurationError("test"),
-            ValidationError("test"),
-            GenerationError("test"),
-            NetworkError("test"),
-            UnsupportedFeatureError("test"),
-            TemplateError("test"),
-        ]
+    def test_all_inherit_from_ipe_error(self):
+        assert issubclass(ConfigurationError, IpeError)
+        assert issubclass(ValidationError, IpeError)
+        assert issubclass(GenerationError, IpeError)
+        assert issubclass(NetworkError, IpeError)
+        assert issubclass(UnsupportedFeatureError, IpeError)
+        assert issubclass(TemplateError, IpeError)
 
-        for exc in exceptions:
-            assert isinstance(exc, IpeError)
-            assert isinstance(exc, Exception)
-
-    def test_exception_catching_with_base_class(self):
+    def test_base_class_catches_subclasses(self):
         with pytest.raises(IpeError):
             raise ConfigurationError("test")
 

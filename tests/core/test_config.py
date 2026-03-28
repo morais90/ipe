@@ -1,7 +1,6 @@
-"""Tests for configuration management."""
-
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 from pydantic import ValidationError
@@ -9,37 +8,46 @@ from pydantic import ValidationError
 from ipe.core.config import IpeConfig, create_default_config, load_config, save_config
 
 
+@pytest.fixture
+def config_file(tmp_path: Path) -> Path:
+    data = {"target": "python", "module_name": "test_api", "output_dir": "./generated"}
+    path = tmp_path / "ipe.json"
+    path.write_text(json.dumps(data))
+    return path
+
+
+@pytest.fixture
+def full_config_data() -> dict[str, Any]:
+    return {
+        "module_name": "api_client",
+        "target": "typescript",
+        "output_dir": "/tmp/generated",
+        "spec_path": "./api.yaml",
+        "targets": {"python": {"async": True}},
+        "template_dir": "/custom/templates",
+    }
+
+
 class TestIpeConfig:
-    def test_minimal_configuration(self):
-        config = IpeConfig(module_name="test_client", output_dir="./output")
-        assert config.module_name == "test_client"
-        assert config.generator == "python"
-        assert config.output_dir == "output"
-        assert config.spec_path is None
-        assert config.base_url is None
+    def test_defaults(self):
+        config = IpeConfig()
+        assert config.model_dump() == {
+            "target": "python",
+            "output_dir": Path("./output"),
+            "module_name": None,
+            "spec_path": "",
+            "targets": {},
+            "template_dir": None,
+        }
 
-    def test_full_configuration(self):
-        config = IpeConfig(
-            module_name="api_client",
-            generator="typescript",
-            output_dir="/tmp/generated",
-            spec_path="./api.yaml",
-            base_url="https://api.example.com",
-        )
+    def test_full_configuration(self, full_config_data: dict[str, Any]):
+        config = IpeConfig(**full_config_data)
         assert config.module_name == "api_client"
-        assert config.generator == "typescript"
-        assert config.output_dir == "/tmp/generated"
-        assert config.spec_path == "api.yaml"
-        assert config.base_url == "https://api.example.com"
-
-    def test_missing_required_fields(self):
-        with pytest.raises(ValidationError) as exc_info:
-            IpeConfig(module_name="test")
-
-        errors = exc_info.value.errors()
-        assert len(errors) == 1
-        assert errors[0]["loc"] == ("output_dir",)
-        assert errors[0]["type"] == "missing"
+        assert config.target == "typescript"
+        assert config.output_dir == Path("/tmp/generated")
+        assert config.spec_path == "./api.yaml"
+        assert config.targets == {"python": {"async": True}}
+        assert config.template_dir == Path("/custom/templates")
 
     @pytest.mark.parametrize(
         "invalid_name",
@@ -53,137 +61,157 @@ class TestIpeConfig:
             "class",
         ],
     )
-    def test_invalid_module_name_characters(self, invalid_name):
+    def test_invalid_module_name(self, invalid_name: str):
         with pytest.raises(ValidationError) as exc_info:
-            IpeConfig(module_name=invalid_name, output_dir="./out")
+            IpeConfig(module_name=invalid_name)
 
         error = exc_info.value.errors()[0]
         assert "invalid characters" in error["msg"] or "keyword" in error["msg"]
 
     @pytest.mark.parametrize(
         "valid_name",
-        [
-            "valid_name",
-            "_private",
-            "__dunder__",
-            "CamelCase",
-            "name123",
-            "name_with_123_numbers",
-        ],
+        ["valid_name", "_private", "__dunder__", "CamelCase", "name123"],
     )
-    def test_valid_module_names(self, valid_name):
-        config = IpeConfig(module_name=valid_name, output_dir="./out")
+    def test_valid_module_names(self, valid_name: str):
+        config = IpeConfig(module_name=valid_name)
         assert config.module_name == valid_name
 
-    def test_path_normalization(self):
-        config = IpeConfig(
-            module_name="test",
-            output_dir="./output/../generated",
-            spec_path="./specs/../api.yaml",
-        )
-        assert config.output_dir == "output/../generated"
-        assert config.spec_path == "specs/../api.yaml"
+    def test_module_name_none_is_valid(self):
+        config = IpeConfig()
+        assert config.module_name is None
 
-    def test_json_schema_generation(self):
+    def test_output_dir_coerced_to_path(self):
+        config = IpeConfig(output_dir="./custom/output")
+        assert isinstance(config.output_dir, Path)
+        assert config.output_dir == Path("./custom/output")
+
+    def test_template_dir_coerced_to_path(self):
+        config = IpeConfig(template_dir="./my/templates")
+        assert isinstance(config.template_dir, Path)
+        assert config.template_dir == Path("./my/templates")
+
+    def test_template_dir_none_by_default(self):
+        config = IpeConfig()
+        assert config.template_dir is None
+
+    def test_json_schema_has_all_fields(self):
         schema = IpeConfig.model_json_schema()
         assert schema["title"] == "IpeConfig"
-        assert "module_name" in schema["properties"]
-        assert "generator" in schema["properties"]
-        assert "output_dir" in schema["properties"]
-        assert schema["required"] == ["module_name", "output_dir"]
+        assert set(schema["properties"].keys()) == {
+            "target",
+            "output_dir",
+            "module_name",
+            "spec_path",
+            "targets",
+            "template_dir",
+        }
 
 
 class TestConfigLoading:
-    def test_load_from_valid_file(self, tmp_path):
-        config_data = {
-            "module_name": "test_api",
-            "output_dir": "./generated",
-            "generator": "python",
-        }
+    def test_load_valid_file(self, config_file: Path):
+        config = load_config(config_file)
+        assert config.module_name == "test_api"
+        assert config.output_dir == Path("./generated")
+        assert config.target == "python"
+
+    def test_load_with_targets(self, tmp_path: Path):
+        data = {"target": "python", "targets": {"python": {"async": True}}}
         config_path = tmp_path / "ipe.json"
-        config_path.write_text(json.dumps(config_data))
+        config_path.write_text(json.dumps(data))
 
         config = load_config(config_path)
-        assert config.module_name == "test_api"
-        assert config.output_dir == "generated"
-        assert config.generator == "python"
+        assert config.targets == {"python": {"async": True}}
 
-    def test_file_not_found_error(self):
-        with pytest.raises(FileNotFoundError) as exc_info:
+    def test_file_not_found(self):
+        with pytest.raises(FileNotFoundError, match="Configuration file not found"):
             load_config(Path("nonexistent.json"))
 
-        assert "Configuration file not found" in str(exc_info.value)
-        assert "ipe init" in str(exc_info.value)
-
-    def test_invalid_json_error(self, tmp_path):
+    def test_invalid_json(self, tmp_path: Path):
         config_path = tmp_path / "ipe.json"
         config_path.write_text("{invalid json}")
 
-        with pytest.raises(ValueError, match="Invalid JSON") as exc_info:
+        with pytest.raises(ValueError, match="Invalid JSON"):
             load_config(config_path)
 
-        assert "Invalid JSON" in str(exc_info.value)
-        assert "line" in str(exc_info.value)
-        assert "column" in str(exc_info.value)
-
-    def test_validation_error_on_load(self, tmp_path):
-        config_data = {"module_name": "123-invalid", "output_dir": "./out"}
+    def test_invalid_module_name_on_load(self, tmp_path: Path):
+        data = {"module_name": "123-invalid"}
         config_path = tmp_path / "ipe.json"
-        config_path.write_text(json.dumps(config_data))
+        config_path.write_text(json.dumps(data))
 
-        with pytest.raises(ValidationError) as exc_info:
+        with pytest.raises(ValidationError, match="invalid characters"):
             load_config(config_path)
-
-        assert "invalid characters" in str(exc_info.value)
 
 
 class TestConfigCreation:
     def test_create_with_defaults(self):
-        config = create_default_config("my_api")
-        assert config.module_name == "my_api"
-        assert config.output_dir == "generated"
-        assert config.generator == "python"
-        assert config.spec_path is None
+        config = create_default_config()
+        assert config.target == "python"
+        assert config.output_dir == Path("./output")
+        assert config.module_name is None
+        assert config.spec_path == ""
 
-    def test_create_with_custom_options(self):
+    def test_create_with_all_options(self):
         config = create_default_config(
-            "custom_api", output_dir="/tmp/out", spec_path="./spec.yaml"
+            spec_path="./spec.yaml",
+            output_dir="/tmp/out",
+            module_name="custom_api",
         )
         assert config.module_name == "custom_api"
-        assert config.output_dir == "/tmp/out"
-        assert config.spec_path == "spec.yaml"
+        assert config.output_dir == Path("/tmp/out")
+        assert config.spec_path == "./spec.yaml"
 
 
 class TestConfigSaving:
-    def test_save_minimal_config(self, tmp_path):
-        config = create_default_config("test_save")
+    def test_save_excludes_none_fields(self, tmp_path: Path):
+        config = create_default_config()
         config_path = tmp_path / "ipe.json"
 
         save_config(config, config_path)
 
-        assert config_path.exists()
         saved_data = json.loads(config_path.read_text())
-        assert saved_data["module_name"] == "test_save"
-        assert saved_data["output_dir"] == "generated"
-        assert saved_data["generator"] == "python"
-        assert "spec_path" not in saved_data
-        assert "base_url" not in saved_data
+        assert saved_data == {
+            "target": "python",
+            "output_dir": "output",
+            "spec_path": "",
+            "targets": {},
+        }
 
-    def test_save_full_config(self, tmp_path):
+    def test_save_full_config(self, tmp_path: Path):
         config = IpeConfig(
             module_name="full_api",
-            generator="typescript",
+            target="typescript",
             output_dir="/output",
             spec_path="./api.yaml",
-            base_url="https://api.example.com",
+            targets={"typescript": {"runtime": "fetch"}},
+            template_dir="/custom",
         )
         config_path = tmp_path / "ipe.json"
 
         save_config(config, config_path)
 
         saved_data = json.loads(config_path.read_text())
-        assert saved_data["module_name"] == "full_api"
-        assert saved_data["generator"] == "typescript"
-        assert saved_data["output_dir"] == "/output"
-        assert saved_data["spec_path"] == "api.yaml"
-        assert saved_data["base_url"] == "https://api.example.com"
+        assert saved_data == {
+            "module_name": "full_api",
+            "target": "typescript",
+            "output_dir": "/output",
+            "spec_path": "./api.yaml",
+            "targets": {"typescript": {"runtime": "fetch"}},
+            "template_dir": "/custom",
+        }
+
+    def test_roundtrip(self, tmp_path: Path):
+        original = IpeConfig(
+            module_name="roundtrip",
+            target="python",
+            spec_path="./api.yaml",
+            output_dir="/out",
+        )
+        config_path = tmp_path / "ipe.json"
+
+        save_config(original, config_path)
+        loaded = load_config(config_path)
+
+        assert loaded.module_name == original.module_name
+        assert loaded.target == original.target
+        assert loaded.spec_path == original.spec_path
+        assert loaded.output_dir == original.output_dir

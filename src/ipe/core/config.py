@@ -3,9 +3,9 @@
 import json
 import keyword
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator
 
 
 class IpeConfig(BaseModel):
@@ -13,51 +13,53 @@ class IpeConfig(BaseModel):
 
     Parameters
     ----------
-    module_name : str
-        The name of the generated module. Must be a valid Python identifier.
-    generator : str, optional
-        The target language generator to use. Defaults to "python".
-    output_dir : str
+    target : str
+        The language target to use. Defaults to "python".
+    output_dir : Path
         The directory where generated code will be written.
-    spec_path : str, optional
-        Path to the OpenAPI specification file.
-    base_url : str, optional
-        Base URL for the API client.
-
-    Raises
-    ------
-    ValueError
-        If module_name contains invalid characters for a Python module.
+    module_name : str, optional
+        The name of the generated module. Auto-detected from spec if omitted.
+    spec_path : str
+        Path or URL to the OpenAPI specification.
+    targets : dict
+        Target-specific configuration options.
+    template_dir : Path, optional
+        Custom template directory for overriding built-in templates (v0.2+).
     """
 
-    module_name: str = Field(..., description="Name of the generated module")
-    generator: str = Field(default="python", description="Target language generator")
-    output_dir: str = Field(..., description="Output directory for generated code")
-    spec_path: Optional[str] = Field(
-        default=None, description="Path to OpenAPI specification"
+    target: str = Field(default="python", description="Language target")
+    output_dir: Path = Field(
+        default=Path("./output"), description="Output directory for generated code"
     )
-    base_url: Optional[str] = Field(default=None, description="Base URL for API client")
+    module_name: Optional[str] = Field(
+        default=None, description="Name of the generated module"
+    )
+    spec_path: str = Field(default="", description="Path to OpenAPI specification")
+    targets: dict[str, dict[str, Any]] = Field(
+        default_factory=dict, description="Target-specific configuration"
+    )
+    template_dir: Optional[Path] = Field(
+        default=None, description="Custom template directory"
+    )
 
     @field_validator("module_name")
     @classmethod
-    def validate_module_name(cls, v: str) -> str:
+    def validate_module_name(cls, v: Optional[str]) -> Optional[str]:
         """Validate module name is a valid Python identifier.
 
         Parameters
         ----------
-        v : str
+        v : str or None
             The module name to validate.
 
         Returns
         -------
-        str
+        str or None
             The validated module name.
-
-        Raises
-        ------
-        ValueError
-            If the module name contains invalid characters or is a keyword.
         """
+        if v is None:
+            return None
+
         if not v.isidentifier():
             raise ValueError(
                 f"Module name '{v}' contains invalid characters. "
@@ -73,29 +75,19 @@ class IpeConfig(BaseModel):
 
         return v
 
-    @field_validator("output_dir")
+    @field_validator("output_dir", mode="before")
     @classmethod
-    def validate_output_dir(cls, v: str) -> str:
-        """Ensure output directory is a valid path.
+    def coerce_output_dir(cls, v: Any) -> Path:
+        """Ensure output directory is a Path."""
+        return Path(v)
 
-        Parameters
-        ----------
-        v : str
-            The output directory path.
-
-        Returns
-        -------
-        str
-            The validated output directory path.
-        """
-        return str(Path(v))
-
-    @model_validator(mode="after")
-    def validate_paths(self) -> "IpeConfig":
-        """Validate that paths are properly formatted."""
-        if self.spec_path:
-            self.spec_path = str(Path(self.spec_path))
-        return self
+    @field_validator("template_dir", mode="before")
+    @classmethod
+    def coerce_template_dir(cls, v: Any) -> Optional[Path]:
+        """Ensure template directory is a Path or None."""
+        if v is None:
+            return None
+        return Path(v)
 
 
 def load_config(config_path: Path) -> IpeConfig:
@@ -119,13 +111,6 @@ def load_config(config_path: Path) -> IpeConfig:
         If the configuration file contains invalid JSON.
     pydantic.ValidationError
         If the configuration does not match the expected schema.
-
-    Examples
-    --------
-    >>> config_path = Path("ipe.json")
-    >>> config = load_config(config_path)
-    >>> print(config.module_name)
-    my_api_client
     """
     if not config_path.exists():
         raise FileNotFoundError(
@@ -146,36 +131,30 @@ def load_config(config_path: Path) -> IpeConfig:
 
 
 def create_default_config(
-    module_name: str,
-    output_dir: str = "./generated",
-    spec_path: Optional[str] = None,
+    spec_path: str = "",
+    output_dir: str = "./output",
+    module_name: Optional[str] = None,
 ) -> IpeConfig:
     """Create a configuration with intelligent defaults.
 
     Parameters
     ----------
-    module_name : str
-        The name of the module to generate.
-    output_dir : str, optional
-        The output directory. Defaults to "./generated".
-    spec_path : str, optional
+    spec_path : str
         Path to the OpenAPI specification.
+    output_dir : str, optional
+        The output directory. Defaults to "./output".
+    module_name : str, optional
+        The name of the module to generate.
 
     Returns
     -------
     IpeConfig
         A configuration with sensible defaults.
-
-    Examples
-    --------
-    >>> config = create_default_config("petstore_client")
-    >>> config.generator
-    'python'
     """
     return IpeConfig(
-        module_name=module_name,
-        output_dir=output_dir,
         spec_path=spec_path,
+        output_dir=Path(output_dir),
+        module_name=module_name,
     )
 
 
@@ -188,11 +167,6 @@ def save_config(config: IpeConfig, config_path: Path) -> None:
         The configuration to save.
     config_path : Path
         Path where the configuration will be saved.
-
-    Examples
-    --------
-    >>> config = create_default_config("my_api")
-    >>> save_config(config, Path("ipe.json"))
     """
-    config_data = config.model_dump(exclude_none=True)
+    config_data = config.model_dump(exclude_none=True, mode="json")
     config_path.write_text(json.dumps(config_data, indent=2) + "\n")
