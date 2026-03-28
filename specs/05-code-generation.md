@@ -2,31 +2,33 @@
 
 ## Overview
 
-Ipê generates resource-based API clients that provide exceptional developer experience through intuitive organization, strong type safety, and comprehensive error handling. The generation system is language-agnostic at its core, with language-specific templates handling the nuances of each target environment.
+This spec defines **what** Ipê generates and **why** -- the qualities, structure, and conventions of the generated code. For **how** the generation pipeline works (SpecAnalyzer, LanguageTarget, TemplateRenderer), see [02-architecture.md](02-architecture.md).
 
-## Core Requirements for Generated Code
+Data models used in the generation process (APIBlueprint, StandardOperation, StandardModel, OutputFile, etc.) are defined in [02-architecture.md](02-architecture.md#canonical-data-models).
+
+## Requirements for Generated Code
 
 ### 1. Resource-Based Client Organization
 API operations are logically grouped by resource, creating intuitive client interfaces that mirror the API's structure and common usage patterns.
 
 ### 2. Strong Type Safety
-Generated code includes comprehensive type information, client-side validation, and schema-aware request/response handling to catch errors early in the development process.
+Generated code includes comprehensive type information, client-side validation, and schema-aware request/response handling to catch errors early.
 
 ### 3. Comprehensive Error Handling
 HTTP errors are mapped to language-appropriate exception hierarchies with clear, actionable error messages and proper error context.
 
-### 4. Idiomatic Code Generation
-Generated code follows the conventions, patterns, and best practices of the target language, appearing as if written by an experienced developer in that language.
+### 4. Idiomatic Code
+Generated code follows the conventions, patterns, and best practices of the target language, appearing as if written by an experienced developer.
 
 ### 5. Schema Validation
 All request and response data is validated against the OpenAPI schema, ensuring API contract compliance and providing immediate feedback for data inconsistencies.
 
 ### 6. Forward Compatibility
-Generated clients handle unknown fields gracefully and are designed to work with evolving APIs without breaking existing code.
+Generated clients handle unknown fields gracefully and work with evolving APIs without breaking existing code.
 
 ## Developer Experience Goals
 
-The generated clients should provide an intuitive, discoverable API that feels natural in the target language:
+The generated clients should provide an intuitive, discoverable API that feels natural in the target language.
 
 **Python Example:**
 ```python
@@ -36,7 +38,7 @@ client = PetStoreClient(api_key="your-key")
 
 # Resource-based organization
 users = client.users.list(status="active", limit=50)
-user = client.users.get(user_id="123") 
+user = client.users.get(user_id="123")
 new_user = client.users.create(name="John", email="john@example.com")
 
 # Comprehensive error handling
@@ -48,303 +50,194 @@ except PetStoreClient.ValidationError as e:
     print(f"Invalid data: {e.detail}")
 ```
 
-**TypeScript Example:**
+**TypeScript (future target):**
 ```typescript
 import { PetStoreClient } from './petstore-client';
 
 const client = new PetStoreClient({ apiKey: 'your-key' });
 
-// Resource-based organization with full typing
 const users: User[] = await client.users.list({ status: 'active', limit: 50 });
 const user: User = await client.users.get({ userId: '123' });
-const newUser: User = await client.users.create({ name: 'John', email: 'john@example.com' });
 
-// Comprehensive error handling
 try {
     const user = await client.users.get({ userId: 'invalid-id' });
 } catch (error) {
     if (error instanceof PetStoreClient.NotFoundError) {
         console.log('User not found');
-    } else if (error instanceof PetStoreClient.ValidationError) {
-        console.log(`Invalid data: ${error.detail}`);
     }
 }
 ```
 
-## Generation Process
+## Generated Output Structure
 
-### 1. Resource Organization
-Operations are grouped into logical resources based on OpenAPI tags or path analysis:
-
-```python
-def organize_operations_by_resource(operations: List[StandardOperation]) -> Dict[str, List]:
-    """Group operations into resources for intuitive client organization"""
-    
-    resources = {}
-    
-    for operation in operations:
-        # Determine resource from tags or path analysis
-        resource_name = extract_resource_name(operation)
-        
-        # Determine method name based on HTTP method and patterns
-        method_name = determine_method_name(operation)
-        
-        if resource_name not in resources:
-            resources[resource_name] = []
-            
-        resources[resource_name].append({
-            "method_name": method_name,
-            "operation": operation
-        })
-    
-    return resources
-
-def extract_resource_name(operation: StandardOperation) -> str:
-    """Extract resource name using intelligent heuristics"""
-    
-    # Prefer explicit tags
-    if operation.tags:
-        return normalize_name(operation.tags[0])
-    
-    # Extract from path structure
-    path_segments = [segment for segment in operation.path.split("/") 
-                    if segment and not segment.startswith("{")]
-    if path_segments:
-        return normalize_name(path_segments[0])
-    
-    return "default"
-
-def determine_method_name(operation: StandardOperation) -> str:
-    """Determine method name based on HTTP method and path patterns"""
-    
-    # Standard CRUD patterns
-    if operation.method == "GET":
-        return "get" if has_path_parameter(operation) else "list"
-    elif operation.method == "POST":
-        return "create"
-    elif operation.method in ["PUT", "PATCH"]:
-        return "update"
-    elif operation.method == "DELETE":
-        return "delete"
-    else:
-        # Use operation ID or generate from context
-        return normalize_name(operation.operation_id or "perform_operation")
+```
+petstore/
+├── __init__.py              # Public API: re-exports client and models
+├── client.py                # Main client with resource accessors
+├── exceptions.py            # Exception hierarchy
+├── auth.py                  # Authentication handlers
+├── models/
+│   ├── __init__.py          # Re-exports all model classes
+│   ├── user.py              # User, CreateUserRequest, UpdateUserRequest
+│   └── pet.py               # Pet, PetStatus
+└── resources/
+    ├── __init__.py           # Re-exports all resource managers
+    ├── users.py              # UsersResource with list, get, create, update, delete
+    └── pets.py               # PetsResource with list, get, create
 ```
 
-### 2. Type System Integration
+Each schema in the OpenAPI spec becomes its own file under `models/`. Each logical group of endpoints becomes its own file under `resources/`. This keeps generated code navigable and diff-friendly.
 
-Each language template provides sophisticated type mapping from OpenAPI schemas:
+## Grouping Rules
+
+### Operations → Resources
+
+Operations are grouped by their primary tag. When tags are absent, the first non-parameterized path segment is used. Each group produces a single resource file in `resources/`.
+
+| Path | Tag | Resource | File |
+|------|-----|----------|------|
+| `GET /users` | `users` | `users` | `resources/users.py` |
+| `GET /users/{id}` | `users` | `users` | `resources/users.py` |
+| `POST /pets` | _(none)_ | `pets` (from path) | `resources/pets.py` |
+
+### Schemas → Model Files
+
+Related models are grouped by the resource they belong to. Request/response variants (e.g., `User`, `CreateUserRequest`, `UpdateUserRequest`) live together. Schemas not tied to a specific resource go into `common.py`.
+
+### Method Naming
+
+Standard CRUD patterns are detected from the HTTP method:
+
+| HTTP Method | Path Pattern | Generated Method |
+|-------------|-------------|-----------------|
+| `GET` | `/resources` | `list()` |
+| `GET` | `/resources/{id}` | `get()` |
+| `POST` | `/resources` | `create()` |
+| `PUT` / `PATCH` | `/resources/{id}` | `update()` |
+| `DELETE` | `/resources/{id}` | `delete()` |
+
+For non-standard operations, the `operationId` is used via the target's `NamingConvention`.
+
+## Generated Exception Hierarchy
+
+Error classes are generated based on the HTTP status codes found across all operations in the spec. Only status codes actually present in the spec produce error classes.
 
 ```python
-def map_openapi_type_to_language(schema: Dict[str, Any], language: str) -> str:
-    """Convert OpenAPI schema to appropriate language type"""
-    
-    type_mappers = {
-        "python": PythonTypeMapper(),
-        "typescript": TypeScriptTypeMapper(), 
-        "go": GoTypeMapper(),
-        "rust": RustTypeMapper()
-    }
-    
-    return type_mappers[language].convert_schema(schema)
+# Generated exceptions.py
+class PetStoreError(Exception):
+    def __init__(self, message: str, status_code: int, detail: Any = None) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+        self.detail = detail
 
-class TypeMapper(ABC):
-    """Base type mapper interface"""
-    
-    @abstractmethod
-    def convert_schema(self, schema: Dict[str, Any]) -> str:
-        """Convert OpenAPI schema to language-specific type"""
-        pass
-    
-    @abstractmethod
-    def handle_array_type(self, items_schema: Dict[str, Any]) -> str:
-        pass
-    
-    @abstractmethod
-    def handle_nullable_type(self, base_type: str) -> str:
-        pass
-    
-    @abstractmethod
-    def handle_complex_type(self, schema: Dict[str, Any]) -> str:
-        pass
+
+class NotFoundError(PetStoreError):
+    """Raised when the requested resource does not exist (404)."""
+
+
+class ValidationError(PetStoreError):
+    """Raised when the request data fails validation (422)."""
 ```
 
-### 3. Error Handling Generation
+The full status code → error class mapping is defined in the target implementation. See [02-architecture.md](02-architecture.md#target-implementation-example-python) for the Python target's error mappings.
 
-Each language template defines appropriate error handling patterns:
+## Generated Authentication
+
+Support for essential authentication schemes, generated based on the `securitySchemes` in the OpenAPI spec.
+
+**Supported in v0.1:** API key, Bearer token, Basic auth.
 
 ```python
-def generate_error_hierarchy(responses: Dict[str, Response], language: str) -> List[ErrorClass]:
-    """Generate language-appropriate error handling"""
-    
-    # Extract unique status codes
-    status_codes = extract_error_status_codes(responses)
-    
-    # Map to semantic error classes
-    error_classes = map_status_codes_to_errors(status_codes)
-    
-    # Generate language-specific error hierarchy
-    return generate_language_errors(error_classes, language)
+# Generated auth.py
+class AuthHandler:
+    def __init__(
+        self,
+        *,
+        api_key: str | None = None,
+        bearer_token: str | None = None,
+        username: str | None = None,
+        password: str | None = None,
+    ) -> None:
+        self.api_key = api_key
+        self.bearer_token = bearer_token
+        self.username = username
+        self.password = password
 
-def map_status_codes_to_errors(status_codes: List[int]) -> List[str]:
-    """Map HTTP status codes to semantic error types"""
-    
-    error_mapping = {
-        400: "BadRequestError",
-        401: "UnauthorizedError", 
-        403: "ForbiddenError",
-        404: "NotFoundError",
-        409: "ConflictError",
-        422: "ValidationError",
-        429: "RateLimitError",
-        500: "InternalServerError",
-        502: "BadGatewayError",
-        503: "ServiceUnavailableError"
-    }
-    
-    return [error_mapping.get(code, f"HTTPError{code}") for code in status_codes]
+    def apply(self, headers: dict[str, str]) -> dict[str, str]:
+        if self.bearer_token:
+            headers["Authorization"] = f"Bearer {self.bearer_token}"
+        elif self.api_key:
+            headers["X-API-Key"] = self.api_key
+        elif self.username and self.password:
+            import base64
+            credentials = base64.b64encode(
+                f"{self.username}:{self.password}".encode()
+            ).decode()
+            headers["Authorization"] = f"Basic {credentials}"
+        return headers
 ```
 
-### 4. Client Structure Generation
+## Generated File Upload Handling
 
-The generation process creates structured, discoverable client interfaces:
+Operations that accept `multipart/form-data` produce methods with file parameters:
 
 ```python
-def generate_client_structure(resources: Dict[str, List], language: str) -> ClientStructure:
-    """Generate the overall client class structure"""
-    
-    return ClientStructure(
-        main_client_class=generate_main_client(resources, language),
-        resource_managers=generate_resource_managers(resources, language),
-        model_classes=generate_model_classes(language),
-        exception_hierarchy=generate_exception_classes(language),
-        authentication_handlers=generate_auth_handlers(language)
+# Generated resource method with file upload
+def upload_avatar(
+    self,
+    user_id: str,
+    file: BinaryIO,
+    *,
+    filename: str | None = None,
+) -> User:
+    files = {"file": (filename or "upload", file)}
+    response = self._client.request(
+        "POST",
+        f"/users/{user_id}/avatar",
+        files=files,
     )
-
-def generate_main_client(resources: Dict[str, List], language: str) -> MainClient:
-    """Generate the primary client class with resource managers"""
-    
-    return MainClient(
-        initialization=generate_client_init(language),
-        resource_properties=[
-            ResourceProperty(name=resource_name, manager_class=f"{resource_name}Manager")
-            for resource_name in resources.keys()
-        ],
-        authentication_setup=generate_auth_setup(language),
-        request_handling=generate_request_methods(language)
-    )
+    return User.model_validate(response.json())
 ```
 
-## Template System Architecture
+## Template Directory Structure
 
-### Language Template Structure
-
-Each language template follows a consistent structure while adapting to language-specific patterns:
+Each target has a self-contained template directory with Jinja2 files:
 
 ```
-templates/{language}/
-├── plugin.py                    # Language template implementation
-├── copier.yml                   # Generation configuration
-└── {{module_name}}/
-    ├── client.{ext}.jinja       # Main client class
-    ├── models.{ext}.jinja       # Data model definitions
-    ├── exceptions.{ext}.jinja   # Error handling classes
-    ├── auth.{ext}.jinja         # Authentication handlers
-    └── README.md.jinja          # Usage documentation
+targets/python/templates/
+├── __init__.py.jinja            # Package root
+├── client.py.jinja              # Main client class
+├── auth.py.jinja                # Authentication handlers
+├── exceptions.py.jinja          # Exception hierarchy
+├── models/
+│   ├── __init__.py.jinja        # Model re-exports
+│   └── model.py.jinja           # Rendered once per model group
+└── resources/
+    ├── __init__.py.jinja        # Resource re-exports
+    └── resource.py.jinja        # Rendered once per resource
 ```
 
-### Template Context Structure
-
-Templates receive rich, normalized data from the kernel:
-
-```python
-@dataclass
-class TemplateData:
-    """Complete data context for template generation"""
-    
-    # Basic metadata
-    module_name: str
-    client_class_name: str
-    spec_info: SpecInfo
-    
-    # Organized operations
-    resources: Dict[str, List[ResourceOperation]]
-    
-    # Type definitions
-    models: List[ModelDefinition]
-    enums: List[EnumDefinition]
-    
-    # Error handling
-    error_responses: List[ErrorResponse]
-    exception_classes: List[ExceptionDefinition]
-    
-    # Authentication
-    auth_schemes: List[AuthScheme]
-    
-    # Generation metadata
-    generated_timestamp: str
-    generator_version: str
-    language_config: Dict[str, Any]
-
-@dataclass
-class ResourceOperation:
-    """Language-agnostic operation representation"""
-    method_name: str
-    http_method: str
-    path: str
-    summary: Optional[str]
-    parameters: List[Parameter]
-    request_body: Optional[RequestBodySpec]
-    response_type: str
-    error_responses: List[ErrorResponse]
-    authentication_required: bool
-```
+The target's `plan()` method determines which templates are rendered and where the output goes. See [02-architecture.md](02-architecture.md#target-implementation-example-python) for how the Python target assembles its render plan.
 
 ## Quality Standards
 
-### Code Generation Standards
+### Code Generation Checklist
 
-1. **Type Safety**: All generated code includes comprehensive type information
-2. **Validation**: Request and response data validated against schemas
-3. **Error Handling**: Comprehensive error mapping with clear error messages
-4. **Documentation**: Generated code includes helpful docstrings and comments
-5. **Performance**: Efficient request handling and data serialization
-6. **Maintainability**: Clean, readable generated code that follows language conventions
+- Every public class and method has a docstring
+- Every function parameter and return value is type-annotated
+- All model fields declare default values or are marked required
+- Re-export `__init__.py` files provide clean public API surfaces
+- Exception classes carry `status_code` and `detail` for debugging
+- Generated code passes the target language's standard linter without configuration
 
-### Authentication Integration
+### Python-Specific Standards
 
-Support for essential authentication schemes:
+1. **Type Safety**: Comprehensive type annotations (modern `list[str]` syntax)
+2. **Validation**: Request and response data validated via Pydantic models
+3. **Performance**: Connection pooling via httpx
+4. **Conventions**: PEP 8 compliant, ruff-clean output
 
-```python
-def generate_authentication_handlers(auth_schemes: List[AuthScheme], language: str) -> AuthCode:
-    """Generate authentication handling code"""
-    
-    handlers = []
-    for scheme in auth_schemes:
-        if scheme.type == "apiKey":
-            handlers.append(generate_api_key_handler(scheme, language))
-        elif scheme.type == "http" and scheme.scheme == "bearer":
-            handlers.append(generate_bearer_token_handler(scheme, language))
-        elif scheme.type == "http" and scheme.scheme == "basic":
-            handlers.append(generate_basic_auth_handler(scheme, language))
-    
-    return AuthCode(handlers=handlers, selection_logic=generate_auth_selection(language))
-```
+### MVP Scope
 
-### Basic File Upload Support
-
-Essential support for file uploads:
-
-```python
-def generate_file_upload_support(operations: List[ResourceOperation], language: str) -> FileUploadCode:
-    """Generate basic file upload handling"""
-    
-    upload_operations = [op for op in operations if has_file_uploads(op)]
-    
-    return FileUploadCode(
-        upload_methods=generate_upload_methods(upload_operations, language),
-        content_type_detection=generate_basic_content_type_logic(language)
-    )
-```
-
-This comprehensive code generation system ensures that all generated clients provide exceptional developer experience while maintaining consistency across languages and full compatibility with OpenAPI specifications.
+- **Python**: Full support (MVP target)
+- **TypeScript**: Planned as the second language target (see [99-future-features.md](99-future-features.md))

@@ -12,7 +12,7 @@ Every decision in Ipê prioritizes the developer experience:
 - 🎨 **Beautiful Output**: Rich CLI with progress indicators and syntax highlighting  
 - 🧠 **Intelligent Defaults**: Works perfectly out-of-the-box, customizable when needed
 - 📚 **Exceptional Documentation**: Every feature explained with examples
-- 🔧 **Extensible**: Plugin system for custom generators and templates
+- 🔧 **Extensible**: Protocol-based target system for new languages and custom templates
 
 ## Project Mission
 
@@ -49,7 +49,7 @@ Generated code must be production-quality with proper error handling, type safet
 
 ### Template-Based Generation
 - **Jinja2** for flexible, maintainable templates
-- **Copier** for sophisticated project scaffolding
+- **pathlib** for file structure generation
 - Clear separation between logic and presentation
 
 ### Developer Productivity Tools
