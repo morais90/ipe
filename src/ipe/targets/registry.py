@@ -1,0 +1,29 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from ipe.core.exceptions import ConfigurationError
+
+if TYPE_CHECKING:
+    from ipe.targets.base import LanguageTarget
+
+
+class TargetRegistry:
+    def __init__(self) -> None:
+        self._targets: dict[str, LanguageTarget] = {}
+
+    def register(self, target: LanguageTarget) -> None:
+        self._targets[target.name] = target
+
+    def get(self, language: str) -> LanguageTarget:
+        if language not in self._targets:
+            available = ", ".join(sorted(self._targets)) or "none"
+            raise ConfigurationError(
+                f"Unknown target language: '{language}'",
+                f"Available targets: {available}",
+                field="target",
+            )
+        return self._targets[language]
+
+    def list_languages(self) -> list[str]:
+        return sorted(self._targets.keys())
