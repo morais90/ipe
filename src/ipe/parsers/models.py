@@ -4,14 +4,18 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
+from typing_extensions import TypeAlias
 
 
 class OpenAPIBaseModel(BaseModel):
     model_config = ConfigDict(
-        extra="allow",
+        extra="ignore",
         populate_by_name=True,
         alias_generator=to_camel,
     )
+
+
+# --- Leaf models (no forward references) ---
 
 
 class Contact(OpenAPIBaseModel):
@@ -24,16 +28,6 @@ class License(OpenAPIBaseModel):
     name: str
     url: str | None = None
     identifier: str | None = None
-
-
-class Info(OpenAPIBaseModel):
-    title: str
-    version: str
-    summary: str | None = None
-    description: str | None = None
-    terms_of_service: str | None = None
-    contact: Contact | None = None
-    license: License | None = Field(default=None, alias="license")
 
 
 class ServerVariable(OpenAPIBaseModel):
@@ -53,12 +47,6 @@ class ExternalDocs(OpenAPIBaseModel):
     description: str | None = None
 
 
-class Tag(OpenAPIBaseModel):
-    name: str
-    description: str | None = None
-    external_docs: ExternalDocs | None = None
-
-
 class Discriminator(OpenAPIBaseModel):
     property_name: str
     mapping: dict[str, str] | None = None
@@ -72,6 +60,58 @@ class XML(OpenAPIBaseModel):
     wrapped: bool = False
 
 
+class Tag(OpenAPIBaseModel):
+    name: str
+    description: str | None = None
+    external_docs: ExternalDocs | None = None
+
+
+class Example(OpenAPIBaseModel):
+    ref: str | None = Field(default=None, alias="$ref")
+    summary: str | None = None
+    description: str | None = None
+    value: Any | None = None
+    external_value: str | None = None
+
+
+class OAuthFlow(OpenAPIBaseModel):
+    authorization_url: str | None = None
+    token_url: str | None = None
+    refresh_url: str | None = None
+    scopes: dict[str, str] = Field(default_factory=dict)
+
+
+class OAuthFlows(OpenAPIBaseModel):
+    implicit: OAuthFlow | None = None
+    password: OAuthFlow | None = None
+    client_credentials: OAuthFlow | None = None
+    authorization_code: OAuthFlow | None = None
+
+
+class SecurityScheme(OpenAPIBaseModel):
+    type: str
+    description: str | None = None
+    name: str | None = None
+    in_: str | None = Field(default=None, alias="in")
+    scheme: str | None = None
+    bearer_format: str | None = None
+    flows: OAuthFlows | None = None
+    open_id_connect_url: str | None = None
+
+
+class Link(OpenAPIBaseModel):
+    ref: str | None = Field(default=None, alias="$ref")
+    operation_ref: str | None = None
+    operation_id: str | None = None
+    parameters: dict[str, Any] | None = None
+    request_body: Any | None = None
+    description: str | None = None
+    server: Server | None = None
+
+
+# --- Schema (self-referencing, Pydantic handles natively) ---
+
+
 class Schema(OpenAPIBaseModel):
     ref: str | None = Field(default=None, alias="$ref")
 
@@ -79,15 +119,15 @@ class Schema(OpenAPIBaseModel):
     nullable: bool | None = None
     format: str | None = None
 
-    all_of: list[dict[str, Any]] | None = None
-    one_of: list[dict[str, Any]] | None = None
-    any_of: list[dict[str, Any]] | None = None
-    not_: dict[str, Any] | None = Field(default=None, alias="not")
+    all_of: list[Schema] | None = None
+    one_of: list[Schema] | None = None
+    any_of: list[Schema] | None = None
+    not_: Schema | None = Field(default=None, alias="not")
 
-    items: dict[str, Any] | None = None
-    prefix_items: list[dict[str, Any]] | None = None
-    properties: dict[str, dict[str, Any]] | None = None
-    additional_properties: bool | dict[str, Any] | None = None
+    items: Schema | None = None
+    prefix_items: list[Schema] | None = None
+    properties: dict[str, Schema] | None = None
+    additional_properties: bool | Schema | None = None
 
     title: str | None = None
     description: str | None = None
@@ -120,11 +160,7 @@ class Schema(OpenAPIBaseModel):
     deprecated: bool | None = None
 
 
-class MediaType(OpenAPIBaseModel):
-    schema_: dict[str, Any] | None = Field(default=None, alias="schema")
-    example: Any | None = None
-    examples: dict[str, Any] | None = None
-    encoding: dict[str, Any] | None = None
+# --- Models that depend on Schema (ordered by dependency) ---
 
 
 class Header(OpenAPIBaseModel):
@@ -132,9 +168,24 @@ class Header(OpenAPIBaseModel):
     description: str | None = None
     required: bool = False
     deprecated: bool = False
-    schema_: dict[str, Any] | None = Field(default=None, alias="schema")
+    schema_: Schema | None = Field(default=None, alias="schema")
     example: Any | None = None
-    examples: dict[str, Any] | None = None
+    examples: dict[str, Example] | None = None
+
+
+class Encoding(OpenAPIBaseModel):
+    content_type: str | None = None
+    headers: dict[str, Header] | None = None
+    style: str | None = None
+    explode: bool | None = None
+    allow_reserved: bool = False
+
+
+class MediaType(OpenAPIBaseModel):
+    schema_: Schema | None = Field(default=None, alias="schema")
+    example: Any | None = None
+    examples: dict[str, Example] | None = None
+    encoding: dict[str, Encoding] | None = None
 
 
 class Parameter(OpenAPIBaseModel):
@@ -148,9 +199,9 @@ class Parameter(OpenAPIBaseModel):
     style: str | None = None
     explode: bool | None = None
     allow_reserved: bool = False
-    schema_: dict[str, Any] | None = Field(default=None, alias="schema")
+    schema_: Schema | None = Field(default=None, alias="schema")
     example: Any | None = None
-    examples: dict[str, Any] | None = None
+    examples: dict[str, Example] | None = None
     content: dict[str, MediaType] | None = None
 
 
@@ -166,45 +217,37 @@ class Response(OpenAPIBaseModel):
     description: str | None = None
     headers: dict[str, Header] | None = None
     content: dict[str, MediaType] | None = None
-    links: dict[str, Any] | None = None
+    links: dict[str, Link] | None = None
 
 
-class OAuthFlow(OpenAPIBaseModel):
-    authorization_url: str | None = None
-    token_url: str | None = None
-    refresh_url: str | None = None
-    scopes: dict[str, str] = Field(default_factory=dict)
-
-
-class OAuthFlows(OpenAPIBaseModel):
-    implicit: OAuthFlow | None = None
-    password: OAuthFlow | None = None
-    client_credentials: OAuthFlow | None = None
-    authorization_code: OAuthFlow | None = None
-
-
-class SecurityScheme(OpenAPIBaseModel):
-    type: str
+class Info(OpenAPIBaseModel):
+    title: str
+    version: str
+    summary: str | None = None
     description: str | None = None
-    name: str | None = None
-    in_: str | None = Field(default=None, alias="in")
-    scheme: str | None = None
-    bearer_format: str | None = None
-    flows: OAuthFlows | None = None
-    open_id_connect_url: str | None = None
+    terms_of_service: str | None = None
+    contact: Contact | None = None
+    license: License | None = Field(default=None, alias="license")
+
+
+# --- Circular dependency: Operation ↔ PathItem ---
+# Operation.callbacks references PathItem, PathItem references Operation.
+# model_rebuild() at module end resolves this.
+
+Callback: TypeAlias = "dict[str, PathItem]"
 
 
 class Components(OpenAPIBaseModel):
-    schemas: dict[str, dict[str, Any]] | None = None
-    responses: dict[str, dict[str, Any]] | None = None
-    parameters: dict[str, dict[str, Any]] | None = None
-    examples: dict[str, dict[str, Any]] | None = None
-    request_bodies: dict[str, dict[str, Any]] | None = None
-    headers: dict[str, dict[str, Any]] | None = None
-    security_schemes: dict[str, dict[str, Any]] | None = None
-    links: dict[str, dict[str, Any]] | None = None
-    callbacks: dict[str, dict[str, Any]] | None = None
-    path_items: dict[str, dict[str, Any]] | None = None
+    schemas: dict[str, Schema] | None = None
+    responses: dict[str, Response] | None = None
+    parameters: dict[str, Parameter] | None = None
+    request_bodies: dict[str, RequestBody] | None = None
+    headers: dict[str, Header] | None = None
+    security_schemes: dict[str, SecurityScheme] | None = None
+    examples: dict[str, Example] | None = None
+    links: dict[str, Link] | None = None
+    callbacks: dict[str, Callback] | None = None
+    path_items: dict[str, PathItem] | None = None
 
 
 class Operation(OpenAPIBaseModel):
@@ -213,10 +256,10 @@ class Operation(OpenAPIBaseModel):
     description: str | None = None
     external_docs: ExternalDocs | None = None
     operation_id: str | None = None
-    parameters: list[dict[str, Any]] | None = None
-    request_body: dict[str, Any] | None = None
-    responses: dict[str, dict[str, Any]] | None = None
-    callbacks: dict[str, Any] | None = None
+    parameters: list[Parameter] | None = None
+    request_body: RequestBody | None = None
+    responses: dict[str, Response] | None = None
+    callbacks: dict[str, Callback] | None = None
     deprecated: bool = False
     security: list[dict[str, list[str]]] | None = None
     servers: list[Server] | None = None
@@ -235,7 +278,7 @@ class PathItem(OpenAPIBaseModel):
     patch: Operation | None = None
     trace: Operation | None = None
     servers: list[Server] | None = None
-    parameters: list[dict[str, Any]] | None = None
+    parameters: list[Parameter] | None = None
 
 
 class OpenAPISpec(OpenAPIBaseModel):
@@ -248,4 +291,8 @@ class OpenAPISpec(OpenAPIBaseModel):
     tags: list[Tag] | None = None
     external_docs: ExternalDocs | None = None
     json_schema_dialect: str | None = None
-    webhooks: dict[str, dict[str, Any]] | None = None
+    webhooks: dict[str, PathItem] | None = None
+
+
+Components.model_rebuild()
+Operation.model_rebuild()

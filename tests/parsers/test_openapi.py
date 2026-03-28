@@ -43,9 +43,23 @@ class TestParseOpenAPI:
         get_op = spec.paths["/pets"].get
         assert get_op is not None
         assert get_op.responses is not None
-        schema = get_op.responses["200"]["content"]["application/json"]["schema"]
-        assert "type" in schema
-        assert "$ref" not in schema
+        resp = get_op.responses["200"]
+        assert resp.content is not None
+        schema = resp.content["application/json"].schema_
+        assert schema is not None
+        assert schema.model_dump(by_alias=True, exclude_unset=True) == {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+                "type": "object",
+                "required": ["id", "name"],
+                "properties": {
+                    "id": {"type": "integer", "format": "int64"},
+                    "name": {"type": "string"},
+                    "tag": {"type": "string"},
+                },
+            },
+        }
 
 
 class TestVersionValidation:
@@ -108,7 +122,7 @@ class TestNormalization30to31:
 
         assert spec.components is not None
         assert spec.components.schemas is not None
-        assert spec.components.schemas["Nullable"] == {
+        assert spec.components.schemas["Nullable"].model_dump(by_alias=True, exclude_unset=True) == {
             "type": ["string", "null"],
         }
 
@@ -132,9 +146,9 @@ class TestNormalization30to31:
 
         assert spec.components is not None
         assert spec.components.schemas is not None
-        assert spec.components.schemas["Bounded"] == {
+        assert spec.components.schemas["Bounded"].model_dump(by_alias=True, exclude_unset=True) == {
             "type": "integer",
-            "exclusiveMinimum": 0,
+            "exclusiveMinimum": 0.0,
         }
 
     def test_exclusive_maximum_boolean_to_number(self):
@@ -157,9 +171,9 @@ class TestNormalization30to31:
 
         assert spec.components is not None
         assert spec.components.schemas is not None
-        assert spec.components.schemas["Bounded"] == {
+        assert spec.components.schemas["Bounded"].model_dump(by_alias=True, exclude_unset=True) == {
             "type": "integer",
-            "exclusiveMaximum": 100,
+            "exclusiveMaximum": 100.0,
         }
 
     def test_example_to_examples_array(self):
@@ -181,7 +195,7 @@ class TestNormalization30to31:
 
         assert spec.components is not None
         assert spec.components.schemas is not None
-        assert spec.components.schemas["WithExample"] == {
+        assert spec.components.schemas["WithExample"].model_dump(by_alias=True, exclude_unset=True) == {
             "type": "string",
             "examples": ["hello"],
         }
@@ -205,7 +219,7 @@ class TestNormalization30to31:
 
         assert spec.components is not None
         assert spec.components.schemas is not None
-        assert spec.components.schemas["Already31"] == {
+        assert spec.components.schemas["Already31"].model_dump(by_alias=True, exclude_unset=True) == {
             "type": ["string", "null"],
             "examples": ["hello"],
         }

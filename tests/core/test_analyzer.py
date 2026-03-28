@@ -12,7 +12,7 @@ class TestSpecAnalyzerParse:
         spec = analyzer.parse(str(FIXTURES_DIR / "petstore.yaml"))
 
         assert spec.openapi == "3.0.0"
-        assert spec.info.model_dump(by_alias=True, exclude_none=True) == {
+        assert spec.info.model_dump(by_alias=True, exclude_unset=True) == {
             "title": "Swagger Petstore",
             "version": "1.0.0",
             "license": {"name": "MIT"},
@@ -41,8 +41,11 @@ class TestSpecAnalyzerParse:
         get_op = spec.paths["/pets"].get
         assert get_op is not None
         assert get_op.responses is not None
-        schema = get_op.responses["200"]["content"]["application/json"]["schema"]
-        assert schema == {
+        resp = get_op.responses["200"]
+        assert resp.content is not None
+        schema = resp.content["application/json"].schema_
+        assert schema is not None
+        assert schema.model_dump(by_alias=True, exclude_unset=True) == {
             "type": "array",
             "maxItems": 100,
             "items": {
