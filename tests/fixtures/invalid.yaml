@@ -1,0 +1,18 @@
+openapi: 3.0.0
+info:
+  title: Invalid API
+paths:
+  /broken:
+    get:
+      responses:
+        200:
+          description: Missing content
+    post:
+      parameters:
+        - name: id
+          in: invalid_location
+          schema:
+            type: string
+      responses:
+        201:
+          description: Created
