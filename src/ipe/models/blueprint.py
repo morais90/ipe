@@ -1,19 +1,17 @@
-
-from dataclasses import asdict, dataclass, field
 from typing import Any
+
+from pydantic import BaseModel, Field
 
 from ipe.models.standard import AuthScheme, StandardModel, StandardOperation
 
 
-@dataclass
-class OutputFile:
+class OutputFile(BaseModel):
     template: str
     output_path: str
     context: dict[str, Any]
 
 
-@dataclass
-class APIBlueprint:
+class APIBlueprint(BaseModel):
     api_name: str
     spec_version: str
     spec_description: str | None
@@ -24,12 +22,7 @@ class APIBlueprint:
     models: list[StandardModel]
     auth_schemes: list[AuthScheme]
 
-    resources: dict[str, list[StandardOperation]]
-
     module_name: str
     generated_at: str
     ipe_version: str
-    generator_config: dict[str, Any] = field(default_factory=dict)
-
-    def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+    generator_config: dict[str, Any] = Field(default_factory=dict)

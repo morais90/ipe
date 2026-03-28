@@ -278,164 +278,136 @@ class CodeGenerator:
 
 **This specification is the single source of truth for all data models below.** Other specs (03-cli, 04-config, 05-codegen, 06-openapi) must reference these definitions, not redefine them.
 
+All models are implemented as Pydantic BaseModel. Each model that originates from OpenAPI data provides a `from_*` classmethod for construction from parser models.
+
 ### OutputFile
 
-The instruction that connects LanguageTarget to TemplateRenderer:
+The instruction that connects LanguageTarget to TemplateRenderer.
 
-```python
-@dataclass
-class OutputFile:
-    """A single file to be rendered and written."""
+| Field | Type | Description |
+|-------|------|-------------|
+| template | str | Which .jinja template to use |
+| output_path | str | Where to write (relative to output_dir) |
+| context | dict | Data for this specific render |
 
-    template: str           # which .jinja template to use
-    output_path: str        # where to write (relative to output_dir)
-    context: dict[str, Any] # data for this specific render
-```
+### APIBlueprint
 
-### APIBlueprint (Language-Agnostic)
+Normalized, language-agnostic API representation produced by SpecAnalyzer. Parser-agnostic — does not import or reference OpenAPI parser models.
 
-```python
-@dataclass
-class APIBlueprint:
-    """Normalized API representation produced by SpecAnalyzer."""
+| Field | Type | Description |
+|-------|------|-------------|
+| api_name | str | From info.title |
+| spec_version | str | From info.version |
+| spec_description | str? | From info.description |
+| base_url | str? | First server URL |
+| server_urls | list[str] | All server URLs |
+| operations | list[StandardOperation] | Flat list of all operations |
+| models | list[StandardModel] | Extracted schema models |
+| auth_schemes | list[AuthScheme] | Security schemes |
+| module_name | str | Generated module name |
+| generated_at | str | ISO timestamp |
+| ipe_version | str | Ipê version |
+| generator_config | dict | Target-specific config |
 
-    # Specification metadata
-    api_name: str
-    spec_version: str
-    spec_description: str | None
-    base_url: str | None
-    server_urls: list[str]
-
-    # Extracted data (flat, for direct access)
-    operations: list[StandardOperation]
-    models: list[StandardModel]
-    auth_schemes: list[AuthScheme]
-
-    # Grouped by resource (for targets that need it)
-    resources: dict[str, list[StandardOperation]]
-
-    # Generation metadata
-    module_name: str
-    generated_at: str
-    ipe_version: str
-    generator_config: dict[str, Any]
-
-    def to_dict(self) -> dict[str, Any]:
-        """Serialize to a plain dict for Jinja2 consumption."""
-        ...
-```
+Targets use `model_dump()` for Jinja2 template consumption.
 
 ### StandardOperation
 
-```python
-@dataclass
-class StandardOperation:
-    operation_id: str
-    method: str          # GET, POST, PUT, PATCH, DELETE
-    path: str            # /users/{user_id}
-    summary: str | None
-    description: str | None
-    tags: list[str]
-    parameters: list[StandardParameter]
-    request_body: RequestBody | None
-    responses: list[Response]
-    security: list[SecurityRequirement]
-```
+One API operation (path + HTTP method combination).
+
+| Field | Type | Description |
+|-------|------|-------------|
+| operation_id | str | Unique identifier |
+| method | str | GET, POST, PUT, PATCH, DELETE |
+| path | str | e.g. /users/{user_id} |
+| summary | str? | Short description |
+| description | str? | Full description |
+| tags | list[str] | Grouping tags |
+| parameters | list[StandardParameter] | Path, query, header, cookie params |
+| request_body | RequestBody? | Request body if present |
+| responses | list[Response] | Response definitions |
+| security | list[SecurityRequirement] | Required auth schemes |
 
 ### StandardParameter
 
-```python
-@dataclass
-class StandardParameter:
-    name: str
-    location: str        # path, query, header, cookie
-    required: bool
-    description: str | None
-    schema_type: str     # OpenAPI type: string, integer, boolean, etc.
-    schema_format: str | None  # date-time, int64, uuid, etc.
-    default: Any | None
-```
+| Field | Type | Description |
+|-------|------|-------------|
+| name | str | Parameter name |
+| location | str | path, query, header, cookie |
+| required | bool | Whether required |
+| schema_type | str | OpenAPI type |
+| description | str? | Description |
+| schema_format | str? | e.g. date-time, int64, uuid |
+| default | Any? | Default value |
 
 ### StandardModel
 
-```python
-@dataclass
-class StandardModel:
-    name: str
-    description: str | None
-    properties: list[StandardProperty]
-    required_fields: list[str]
-    validation_rules: list[ValidationRule]
-```
+A named schema from components/schemas (array schemas are skipped — they are type aliases).
+
+| Field | Type | Description |
+|-------|------|-------------|
+| name | str | Schema name |
+| description | str? | Description |
+| properties | list[StandardProperty] | Model fields |
+| required_fields | list[str] | Required field names |
+| validation_rules | list[ValidationRule] | Constraints from schema |
 
 ### StandardProperty
 
-```python
-@dataclass
-class StandardProperty:
-    name: str
-    description: str | None
-    schema_type: str          # OpenAPI type
-    schema_format: str | None
-    required: bool
-    nullable: bool
-    default: Any | None
-    enum_values: list[Any] | None
-```
+| Field | Type | Description |
+|-------|------|-------------|
+| name | str | Field name |
+| schema_type | str | OpenAPI type |
+| description | str? | Description |
+| schema_format | str? | Format hint |
+| required | bool | Whether required |
+| nullable | bool | Whether nullable |
+| default | Any? | Default value |
+| enum_values | list[Any]? | Allowed values |
 
 ### RequestBody
 
-```python
-@dataclass
-class RequestBody:
-    required: bool
-    description: str | None
-    content_types: list[str]  # application/json, multipart/form-data, etc.
-    schema_type: str          # OpenAPI type or $ref model name
-    schema_format: str | None
-```
+| Field | Type | Description |
+|-------|------|-------------|
+| required | bool | Whether required |
+| content_types | list[str] | e.g. application/json |
+| schema_type | str | OpenAPI type or model name |
+| description | str? | Description |
+| schema_format | str? | Format hint |
 
 ### Response
 
-```python
-@dataclass
-class Response:
-    status_code: str          # "200", "404", "default"
-    description: str | None
-    content_type: str | None
-    schema_type: str | None
-    schema_format: str | None
-```
+| Field | Type | Description |
+|-------|------|-------------|
+| status_code | str | "200", "404", "default" |
+| description | str? | Description |
+| content_type | str? | Media type |
+| schema_type | str? | Response body type |
+| schema_format | str? | Format hint |
 
 ### AuthScheme
 
-```python
-@dataclass
-class AuthScheme:
-    name: str
-    type: str                 # apiKey, http, oauth2, openIdConnect
-    scheme: str | None        # bearer, basic (for type=http)
-    location: str | None      # header, query, cookie (for type=apiKey)
-    header_name: str | None   # X-API-Key, Authorization, etc.
-```
+| Field | Type | Description |
+|-------|------|-------------|
+| name | str | Scheme identifier |
+| type | str | apiKey, http, oauth2, openIdConnect |
+| scheme | str? | bearer, basic (for type=http) |
+| location | str? | header, query, cookie (for type=apiKey) |
+| header_name | str? | e.g. X-API-Key, Authorization |
 
 ### ValidationRule
 
-```python
-@dataclass
-class ValidationRule:
-    rule_type: str            # min_length, max_length, pattern, minimum, etc.
-    value: Any                # The constraint value
-```
+| Field | Type | Description |
+|-------|------|-------------|
+| rule_type | str | min_length, max_length, pattern, minimum, etc. |
+| value | Any | The constraint value |
 
 ### SecurityRequirement
 
-```python
-@dataclass
-class SecurityRequirement:
-    scheme_name: str
-    scopes: list[str]
-```
+| Field | Type | Description |
+|-------|------|-------------|
+| scheme_name | str | References an AuthScheme |
+| scopes | list[str] | Required OAuth scopes (empty for non-oauth) |
 
 ## NamingConvention Protocol
 

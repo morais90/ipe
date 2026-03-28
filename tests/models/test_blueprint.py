@@ -1,5 +1,3 @@
-from dataclasses import asdict
-
 import pytest
 
 from ipe.models.blueprint import APIBlueprint, OutputFile
@@ -26,7 +24,6 @@ def minimal_blueprint() -> APIBlueprint:
         operations=[],
         models=[],
         auth_schemes=[],
-        resources={},
         module_name="petstore",
         generated_at="2026-03-28T00:00:00Z",
         ipe_version="0.1.0",
@@ -96,13 +93,6 @@ def full_blueprint() -> APIBlueprint:
                 header_name="X-API-Key",
             ),
         ],
-        resources={
-            "pets": [
-                StandardOperation(
-                    operation_id="listPets", method="GET", path="/pets"
-                ),
-            ],
-        },
         module_name="petstore",
         generated_at="2026-03-28T00:00:00Z",
         ipe_version="0.1.0",
@@ -117,7 +107,8 @@ class TestOutputFile:
             output_path="petstore/client.py",
             context={"module_name": "petstore"},
         )
-        assert asdict(out) == {
+
+        assert out.model_dump() == {
             "template": "client.py.jinja",
             "output_path": "petstore/client.py",
             "context": {"module_name": "petstore"},
@@ -125,8 +116,8 @@ class TestOutputFile:
 
 
 class TestAPIBlueprint:
-    def test_minimal_to_dict(self, minimal_blueprint: APIBlueprint):
-        assert minimal_blueprint.to_dict() == {
+    def test_minimal(self, minimal_blueprint: APIBlueprint):
+        assert minimal_blueprint.model_dump() == {
             "api_name": "Petstore",
             "spec_version": "3.0.0",
             "spec_description": None,
@@ -135,15 +126,14 @@ class TestAPIBlueprint:
             "operations": [],
             "models": [],
             "auth_schemes": [],
-            "resources": {},
             "module_name": "petstore",
             "generated_at": "2026-03-28T00:00:00Z",
             "ipe_version": "0.1.0",
             "generator_config": {},
         }
 
-    def test_full_to_dict(self, full_blueprint: APIBlueprint):
-        assert full_blueprint.to_dict() == {
+    def test_full(self, full_blueprint: APIBlueprint):
+        assert full_blueprint.model_dump() == {
             "api_name": "Petstore",
             "spec_version": "3.0.0",
             "spec_description": "A sample API",
@@ -232,22 +222,6 @@ class TestAPIBlueprint:
                     "header_name": "X-API-Key",
                 },
             ],
-            "resources": {
-                "pets": [
-                    {
-                        "operation_id": "listPets",
-                        "method": "GET",
-                        "path": "/pets",
-                        "summary": None,
-                        "description": None,
-                        "tags": [],
-                        "parameters": [],
-                        "request_body": None,
-                        "responses": [],
-                        "security": [],
-                    },
-                ],
-            },
             "module_name": "petstore",
             "generated_at": "2026-03-28T00:00:00Z",
             "ipe_version": "0.1.0",

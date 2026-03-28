@@ -1,4 +1,3 @@
-from dataclasses import asdict
 from pathlib import Path
 
 import pytest
@@ -80,7 +79,7 @@ class TestSpecAnalyzerParse:
 
 class TestSpecAnalyzerExtractOperations:
     def test_operation_full_output(self, petstore_blueprint: APIBlueprint):
-        assert asdict(petstore_blueprint.operations[0]) == {
+        assert petstore_blueprint.operations[0].model_dump() == {
             "operation_id": "listPets",
             "method": "GET",
             "path": "/pets",
@@ -120,7 +119,7 @@ class TestSpecAnalyzerExtractOperations:
 
     def test_operation_with_request_body(self, petstore_blueprint: APIBlueprint):
         assert petstore_blueprint.operations[1].request_body is not None
-        assert asdict(petstore_blueprint.operations[1].request_body) == {
+        assert petstore_blueprint.operations[1].request_body.model_dump() == {
             "required": True,
             "content_types": ["application/json"],
             "schema_type": "object",
@@ -129,7 +128,7 @@ class TestSpecAnalyzerExtractOperations:
         }
 
     def test_path_parameter(self, petstore_blueprint: APIBlueprint):
-        assert asdict(petstore_blueprint.operations[2].parameters[0]) == {
+        assert petstore_blueprint.operations[2].parameters[0].model_dump() == {
             "name": "petId",
             "location": "path",
             "required": True,
@@ -142,7 +141,7 @@ class TestSpecAnalyzerExtractOperations:
 
 class TestSpecAnalyzerExtractModels:
     def test_pet_model_full_output(self, petstore_blueprint: APIBlueprint):
-        assert asdict(petstore_blueprint.models[0]) == {
+        assert petstore_blueprint.models[0].model_dump() == {
             "name": "Pet",
             "description": None,
             "properties": [
@@ -182,7 +181,7 @@ class TestSpecAnalyzerExtractModels:
         }
 
     def test_error_model_full_output(self, petstore_blueprint: APIBlueprint):
-        assert asdict(petstore_blueprint.models[1]) == {
+        assert petstore_blueprint.models[1].model_dump() == {
             "name": "Error",
             "description": None,
             "properties": [
@@ -236,9 +235,3 @@ class TestSpecAnalyzerExtractMeta:
 
     def test_derive_module_name(self, petstore_blueprint: APIBlueprint):
         assert petstore_blueprint.module_name == "swagger_petstore"
-
-    def test_resource_grouping(self, petstore_blueprint: APIBlueprint):
-        assert set(petstore_blueprint.resources.keys()) == {"pets"}
-        assert petstore_blueprint.resources["pets"][0].operation_id == "listPets"
-        assert petstore_blueprint.resources["pets"][1].operation_id == "createPets"
-        assert petstore_blueprint.resources["pets"][2].operation_id == "showPetById"

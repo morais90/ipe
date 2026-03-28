@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from typing import Any
+
+from pydantic import BaseModel, Field
 
 from ipe.parsers import models as openapi
 
 
-@dataclass
-class ValidationRule:
+class ValidationRule(BaseModel):
     rule_type: str
     value: Any
 
@@ -38,10 +38,9 @@ _SCHEMA_VALIDATION_MAP = [
 ]
 
 
-@dataclass
-class SecurityRequirement:
+class SecurityRequirement(BaseModel):
     scheme_name: str
-    scopes: list[str] = field(default_factory=list)
+    scopes: list[str] = Field(default_factory=list)
 
     @classmethod
     def from_security(
@@ -54,8 +53,7 @@ class SecurityRequirement:
         ]
 
 
-@dataclass
-class StandardProperty:
+class StandardProperty(BaseModel):
     name: str
     schema_type: str
     description: str | None = None
@@ -81,13 +79,12 @@ class StandardProperty:
         )
 
 
-@dataclass
-class StandardModel:
+class StandardModel(BaseModel):
     name: str
     description: str | None = None
-    properties: list[StandardProperty] = field(default_factory=list)
-    required_fields: list[str] = field(default_factory=list)
-    validation_rules: list[ValidationRule] = field(default_factory=list)
+    properties: list[StandardProperty] = Field(default_factory=list)
+    required_fields: list[str] = Field(default_factory=list)
+    validation_rules: list[ValidationRule] = Field(default_factory=list)
 
     @classmethod
     def from_schema(cls, name: str, schema: openapi.Schema) -> StandardModel | None:
@@ -109,8 +106,7 @@ class StandardModel:
         )
 
 
-@dataclass
-class StandardParameter:
+class StandardParameter(BaseModel):
     name: str
     location: str
     required: bool
@@ -133,8 +129,7 @@ class StandardParameter:
         )
 
 
-@dataclass
-class RequestBody:
+class RequestBody(BaseModel):
     required: bool
     content_types: list[str]
     schema_type: str
@@ -161,8 +156,7 @@ class RequestBody:
         )
 
 
-@dataclass
-class Response:
+class Response(BaseModel):
     status_code: str
     description: str | None = None
     content_type: str | None = None
@@ -187,8 +181,7 @@ class Response:
         )
 
 
-@dataclass
-class AuthScheme:
+class AuthScheme(BaseModel):
     name: str
     type: str
     scheme: str | None = None
@@ -214,18 +207,17 @@ class AuthScheme:
         )
 
 
-@dataclass
-class StandardOperation:
+class StandardOperation(BaseModel):
     operation_id: str
     method: str
     path: str
     summary: str | None = None
     description: str | None = None
-    tags: list[str] = field(default_factory=list)
-    parameters: list[StandardParameter] = field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
+    parameters: list[StandardParameter] = Field(default_factory=list)
     request_body: RequestBody | None = None
-    responses: list[Response] = field(default_factory=list)
-    security: list[SecurityRequirement] = field(default_factory=list)
+    responses: list[Response] = Field(default_factory=list)
+    security: list[SecurityRequirement] = Field(default_factory=list)
 
     @classmethod
     def from_operation(
