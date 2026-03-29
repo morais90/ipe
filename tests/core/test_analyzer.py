@@ -49,7 +49,7 @@ class TestSpecAnalyzerParse:
             "/tickets/{ticketId}/qr",
         }
 
-    def test_parse_resolves_refs(self):
+    def test_refs_resolve_lazily(self):
         analyzer = SpecAnalyzer()
 
         spec = analyzer.parse(str(FIXTURES_DIR / "petstore.yaml"))
@@ -62,19 +62,10 @@ class TestSpecAnalyzerParse:
         assert resp.content is not None
         schema = resp.content["application/json"].schema_
         assert schema is not None
-        assert schema.model_dump(by_alias=True, exclude_unset=True) == {
-            "type": "array",
-            "maxItems": 100,
-            "items": {
-                "type": "object",
-                "required": ["id", "name"],
-                "properties": {
-                    "id": {"type": "integer", "format": "int64"},
-                    "name": {"type": "string"},
-                    "tag": {"type": "string"},
-                },
-            },
-        }
+        assert schema.ref == "#/components/schemas/Pets"
+        assert schema.type == "array"
+        assert schema.items is not None
+        assert schema.items.type == "object"
 
 
 class TestSpecAnalyzerExtractOperations:

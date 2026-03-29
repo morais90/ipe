@@ -1,15 +1,49 @@
-
-import copy
 from typing import Any
 
 from ipe.core.exceptions import ValidationError
 
 
 def resolve_refs(spec_dict: dict[str, Any]) -> dict[str, Any]:
-    resolved = copy.deepcopy(spec_dict)
-    cache: dict[str, Any] = {}
-    _resolve_node(resolved, resolved, set(), cache)
-    return resolved
+    """Resolve $ref pointers in-place with shared references (no deep copy).
+
+    Replaces each $ref dict with a direct reference to the target object.
+    Does NOT recurse into resolved targets — avoids infinite loops on
+    circular refs and keeps resolution O(nodes) for large specs.
+    """
+    resolved_ids: set[int] = set()
+    _resolve_node(spec_dict, spec_dict, resolved_ids)
+    return spec_dict
+
+
+def _resolve_node(
+    node: Any,
+    root: dict[str, Any],
+    resolved_ids: set[int],
+) -> Any:
+    node_id = id(node)
+    if node_id in resolved_ids:
+        return node
+    resolved_ids.add(node_id)
+
+    if isinstance(node, list):
+        for i, item in enumerate(node):
+            result = _resolve_node(item, root, resolved_ids)
+            if result is not item:
+                node[i] = result
+        return node
+
+    if not isinstance(node, dict):
+        return node
+
+    if "$ref" in node:
+        return _lookup_ref(root, node["$ref"])
+
+    for key in node:
+        result = _resolve_node(node[key], root, resolved_ids)
+        if result is not node[key]:
+            node[key] = result
+
+    return node
 
 
 def _lookup_ref(root: dict[str, Any], ref: str) -> Any:
@@ -36,56 +70,3 @@ def _lookup_ref(root: dict[str, Any], ref: str) -> Any:
                 "Reference path traverses a non-object value",
             )
     return current
-
-
-def _resolve_node(
-    node: Any,
-    root: dict[str, Any],
-    seen_refs: set[str],
-    cache: dict[str, Any],
-) -> Any:
-    if not isinstance(node, dict | list):
-        return node
-
-    if isinstance(node, list):
-        for i, item in enumerate(node):
-            result = _resolve_node(item, root, seen_refs, cache)
-            if result is not item:
-                node[i] = result
-        return node
-
-    if "$ref" in node:
-        return _resolve_ref(node["$ref"], root, seen_refs, cache, fallback=node)
-
-    for key in node:
-        result = _resolve_node(node[key], root, seen_refs, cache)
-        if result is not node[key]:
-            node[key] = result
-
-    return node
-
-
-def _resolve_ref(
-    ref: str,
-    root: dict[str, Any],
-    seen_refs: set[str],
-    cache: dict[str, Any],
-    fallback: dict[str, Any],
-) -> Any:
-    if ref in seen_refs:
-        return fallback
-
-    if ref in cache:
-        return copy.deepcopy(cache[ref])
-
-    target = _lookup_ref(root, ref)
-    if not isinstance(target, dict):
-        cache[ref] = target
-        return target
-
-    seen_refs.add(ref)
-    _resolve_node(target, root, seen_refs, cache)
-    seen_refs.discard(ref)
-
-    cache[ref] = target
-    return copy.deepcopy(target)

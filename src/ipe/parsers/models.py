@@ -1,9 +1,14 @@
 from __future__ import annotations
 
-from typing import Any
+import contextvars
+from typing import Any, ClassVar
 
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
+
+_schema_registry: contextvars.ContextVar[dict[str, Schema] | None] = contextvars.ContextVar(
+    "_schema_registry", default=None
+)
 
 
 class OpenAPIBaseModel(BaseModel):
@@ -108,10 +113,12 @@ class Link(OpenAPIBaseModel):
     server: Server | None = None
 
 
-# --- Schema (self-referencing, Pydantic handles natively) ---
+# --- Schema (self-referencing, lazy $ref resolution) ---
 
 
 class Schema(OpenAPIBaseModel):
+    _LAZY_FIELDS: ClassVar[frozenset[str]] = frozenset()
+
     ref: str | None = Field(default=None, alias="$ref")
 
     type: str | list[str] | None = None
@@ -157,6 +164,30 @@ class Schema(OpenAPIBaseModel):
     example: Any | None = None
     examples: list[Any] | None = None
     deprecated: bool | None = None
+
+    def __getattribute__(self, name: str) -> Any:
+        lazy_fields = type.__getattribute__(type(self), "_LAZY_FIELDS")
+        if name not in lazy_fields:
+            return super().__getattribute__(name)
+
+        ref = super().__getattribute__("ref")
+        if not ref:
+            return super().__getattribute__(name)
+
+        registry = _schema_registry.get()
+        if registry is None:
+            return super().__getattribute__(name)
+        resolved = registry.get(ref)
+        if resolved is not None and resolved is not self:
+            return getattr(resolved, name)
+        return super().__getattribute__(name)
+
+
+def bind_schema_registry(schemas: dict[str, Schema]) -> None:
+    _schema_registry.set({
+        f"#/components/schemas/{name}": schema
+        for name, schema in schemas.items()
+    })
 
 
 # --- Models that depend on Schema (ordered by dependency) ---
@@ -295,3 +326,4 @@ class OpenAPISpec(OpenAPIBaseModel):
 
 Components.model_rebuild()
 Operation.model_rebuild()
+Schema._LAZY_FIELDS = frozenset(Schema.model_fields.keys()) - {"ref"}

@@ -1,26 +1,30 @@
-
+import copy
 from collections.abc import Callable
 from typing import Any
 
 from pydantic import ValidationError as PydanticValidationError
 
 from ipe.core.exceptions import UnsupportedFeatureError, ValidationError
-from ipe.parsers.models import OpenAPISpec
-from ipe.parsers.resolver import resolve_refs
+from ipe.parsers.models import OpenAPISpec, bind_schema_registry
 
 
 def parse_openapi(spec_dict: dict[str, Any]) -> OpenAPISpec:
     _validate_version(spec_dict)
-    normalized = _normalize_30_to_31(spec_dict)
-    resolved = resolve_refs(normalized)
+    working = copy.deepcopy(spec_dict)
+    _normalize_30_to_31(working)
 
     try:
-        return OpenAPISpec.model_validate(resolved)
+        spec = OpenAPISpec.model_validate(working)
     except PydanticValidationError as exc:
         raise ValidationError(
             "Invalid OpenAPI specification structure",
             "Check the spec against the OpenAPI 3.x specification",
         ) from exc
+
+    if spec.components and spec.components.schemas:
+        bind_schema_registry(spec.components.schemas)
+
+    return spec
 
 
 def _validate_version(spec_dict: dict[str, Any]) -> None:

@@ -54,7 +54,7 @@ class TestResolveSimpleRefs:
             "properties": {"name": {"type": "string"}},
         }
 
-    def test_does_not_mutate_original(self):
+    def test_resolves_in_place(self):
         spec: dict[str, Any] = {
             "components": {"schemas": {"A": {"type": "string"}}},
             "ref_user": {"$ref": "#/components/schemas/A"},
@@ -62,7 +62,7 @@ class TestResolveSimpleRefs:
 
         resolve_refs(spec)
 
-        assert spec["ref_user"] == {"$ref": "#/components/schemas/A"}
+        assert spec["ref_user"] == {"type": "string"}
 
 
 class TestResolveRealSpecs:
@@ -100,9 +100,8 @@ class TestCircularRefs:
         node = result["components"]["schemas"]["Node"]
         assert node["type"] == "object"
         assert node["properties"]["children"]["type"] == "array"
-        nested = node["properties"]["children"]["items"]
-        assert nested["type"] == "object"
-        assert nested["properties"]["children"]["items"]["$ref"] == "#/components/schemas/Node"
+        children_items = node["properties"]["children"]["items"]
+        assert children_items is node
 
     def test_mutual_circular_ref_spec(self, circular_ref_spec: dict[str, Any]):
         result = resolve_refs(circular_ref_spec)
