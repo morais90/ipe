@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Any, Protocol
 
 from ipe.models.standard import StandardOperation
@@ -22,5 +23,8 @@ class LanguageTarget(Protocol):
     def group(
         self, operations: list[StandardOperation]
     ) -> dict[str, list[StandardOperation]]: ...
+
+    @property
+    def template_dir(self) -> Path: ...
 
     def get_default_config(self) -> dict[str, Any]: ...

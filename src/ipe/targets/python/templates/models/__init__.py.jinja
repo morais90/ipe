@@ -1,0 +1,11 @@
+"""{{ api_name }} API models."""
+
+{% for model in models %}
+from {{ module_name }}.models.{{ model.name | module_name }} import {{ model.name | class_name }}
+{% endfor %}
+
+__all__ = [
+{% for model in models %}
+    "{{ model.name | class_name }}",
+{% endfor %}
+]

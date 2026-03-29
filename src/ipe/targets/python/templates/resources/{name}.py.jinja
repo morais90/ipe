@@ -1,0 +1,52 @@
+"""{{ item_name | class_name }} resource."""
+
+from __future__ import annotations
+
+from typing import Any
+
+import httpx
+
+
+class {{ item_name | class_name }}Resource:
+    def __init__(self, client: httpx.Client) -> None:
+        self._client = client
+
+{% for operation in operations %}
+{% set path_params = operation.parameters | selectattr("location", "equalto", "path") | list %}
+{% set query_params = operation.parameters | selectattr("location", "equalto", "query") | list %}
+    def {{ operation.method_name }}(
+        self,
+{% for param in path_params %}
+        {{ param.python_name }}: {{ param.python_type }},
+{% endfor %}
+{% for param in query_params %}
+        {{ param.python_name }}: {{ param.python_type }} | None = {% if param.default is not none %}{{ param.default | tojson }}{% else %}None{% endif %},
+{% endfor %}
+    ) -> Any:
+{% if operation.summary %}
+        """{{ operation.summary }}"""
+{% endif %}
+{% if path_params %}
+        url = "{{ operation.path }}".format(
+{% for param in path_params %}
+            {{ param.name }}={{ param.python_name }},
+{% endfor %}
+        )
+{% else %}
+        url = "{{ operation.path }}"
+{% endif %}
+        response = self._client.request(
+            "{{ operation.method }}",
+            url,
+{% if query_params %}
+            params={
+{% for param in query_params %}
+                "{{ param.name }}": {{ param.python_name }},
+{% endfor %}
+            },
+{% endif %}
+        )
+        response.raise_for_status()
+        return response.json()
+
+{% endfor %}

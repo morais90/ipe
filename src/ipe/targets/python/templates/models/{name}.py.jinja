@@ -1,0 +1,23 @@
+"""{{ model.name | class_name }} model."""
+
+from __future__ import annotations
+
+from pydantic import BaseModel
+
+
+class {{ model.name | class_name }}(BaseModel):
+{% if model.description %}
+    """{{ model.description }}"""
+
+{% endif %}
+{% for prop in model.properties %}
+{% if prop.required and not prop.nullable %}
+    {{ prop.name | field_name }}: {{ prop.schema_type | resolve_type(prop.schema_format) }}
+{% elif prop.required and prop.nullable %}
+    {{ prop.name | field_name }}: {{ prop.schema_type | resolve_type(prop.schema_format) }} | None
+{% elif prop.default is not none %}
+    {{ prop.name | field_name }}: {{ prop.schema_type | resolve_type(prop.schema_format) }}{% if prop.nullable %} | None{% endif %} = {{ prop.default | tojson }}
+{% else %}
+    {{ prop.name | field_name }}: {{ prop.schema_type | resolve_type(prop.schema_format) }} | None = None
+{% endif %}
+{% endfor %}

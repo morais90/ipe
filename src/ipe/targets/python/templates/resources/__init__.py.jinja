@@ -1,0 +1,11 @@
+"""{{ api_name }} API resources."""
+
+{% for resource_path, operations in resources.items() %}
+from {{ module_name }}.resources.{{ resource_path | replace("/", ".") }} import {{ resource_path.split("/")[-1] | class_name }}Resource
+{% endfor %}
+
+__all__ = [
+{% for resource_path, operations in resources.items() %}
+    "{{ resource_path.split("/")[-1] | class_name }}Resource",
+{% endfor %}
+]

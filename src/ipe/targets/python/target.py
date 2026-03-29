@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Any
 
 from ipe.models.standard import StandardOperation
@@ -47,6 +48,10 @@ class PythonTarget:
         self, operations: list[StandardOperation]
     ) -> dict[str, list[StandardOperation]]:
         return by_nested_path(operations)
+
+    @property
+    def template_dir(self) -> Path:
+        return Path(__file__).parent / "templates"
 
     def get_default_config(self) -> dict[str, Any]:
         return {

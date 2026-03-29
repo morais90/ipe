@@ -1,0 +1,47 @@
+"""{{ api_name }} API client."""
+
+from __future__ import annotations
+
+import httpx
+
+{% for resource_path, operations in resources.items() %}
+from {{ module_name }}.resources.{{ resource_path | replace("/", ".") }} import {{ resource_path.split("/")[-1] | class_name }}Resource
+{% endfor %}
+
+
+class {{ api_name | class_name }}Client:
+    """Client for the {{ api_name }} API.
+
+    Usage:
+        client = {{ api_name | class_name }}Client(base_url="{{ base_url or 'https://api.example.com' }}")
+{% for resource_path, operations in resources.items() %}
+        client.{{ resource_path.split("/")[-1] | field_name }}.list()
+{% endfor %}
+    """
+
+    def __init__(
+        self,
+        base_url: str = "{{ base_url or 'https://api.example.com' }}",
+        *,
+        api_key: str | None = None,
+        timeout: float = 30.0,
+    ) -> None:
+        self._client = httpx.Client(
+            base_url=base_url,
+            timeout=timeout,
+        )
+        if api_key:
+            self._client.headers["Authorization"] = f"Bearer {api_key}"
+
+{% for resource_path, operations in resources.items() %}
+        self.{{ resource_path.split("/")[-1] | field_name }} = {{ resource_path.split("/")[-1] | class_name }}Resource(self._client)
+{% endfor %}
+
+    def close(self) -> None:
+        self._client.close()
+
+    def __enter__(self) -> {{ api_name | class_name }}Client:
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        self.close()

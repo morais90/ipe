@@ -1,0 +1,42 @@
+"""{{ api_name }} API exceptions."""
+
+
+class {{ api_name | class_name }}Error(Exception):
+    """Base exception for {{ api_name }} API errors."""
+
+    def __init__(self, message: str, status_code: int | None = None, response: object | None = None) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+        self.response = response
+
+
+class BadRequestError({{ api_name | class_name }}Error):
+    pass
+
+
+class UnauthorizedError({{ api_name | class_name }}Error):
+    pass
+
+
+class ForbiddenError({{ api_name | class_name }}Error):
+    pass
+
+
+class NotFoundError({{ api_name | class_name }}Error):
+    pass
+
+
+class ConflictError({{ api_name | class_name }}Error):
+    pass
+
+
+class ValidationError({{ api_name | class_name }}Error):
+    pass
+
+
+class RateLimitError({{ api_name | class_name }}Error):
+    pass
+
+
+class InternalServerError({{ api_name | class_name }}Error):
+    pass
