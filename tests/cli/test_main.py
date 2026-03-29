@@ -1,5 +1,3 @@
-"""Tests for main CLI application."""
-
 from typer.testing import CliRunner
 
 from ipe.cli.main import app
@@ -15,7 +13,7 @@ class TestMainCLI:
         assert result.exit_code == 0
         assert "🌳 Ipê - OpenAPI Code Generator" in result.stdout
         assert "Version: 0.1.0" in result.stdout
-        assert "Python compatibility: 3.9+" in result.stdout
+        assert "Python compatibility: 3.12+" in result.stdout
 
     def test_version_flag(self):
         result = self.runner.invoke(app, ["--version"])
