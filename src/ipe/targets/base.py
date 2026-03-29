@@ -1,8 +1,6 @@
-
-from pathlib import Path
 from typing import Any, Protocol
 
-from ipe.models.blueprint import APIBlueprint, OutputFile
+from ipe.models.standard import StandardOperation
 
 
 class NamingConvention(Protocol):
@@ -19,12 +17,10 @@ class LanguageTarget(Protocol):
     @property
     def naming(self) -> NamingConvention: ...
 
-    def transform(self, blueprint: APIBlueprint) -> dict[str, Any]: ...
+    def resolve_type(self, schema_type: str, schema_format: str | None) -> str: ...
 
-    def plan(self, data: dict[str, Any]) -> list[OutputFile]: ...
-
-    def get_template_dir(self) -> Path: ...
-
-    def validate_config(self, config: dict[str, Any]) -> bool: ...
+    def group(
+        self, operations: list[StandardOperation]
+    ) -> dict[str, list[StandardOperation]]: ...
 
     def get_default_config(self) -> dict[str, Any]: ...

@@ -53,8 +53,8 @@ def registry() -> TargetRegistry:
 
 
 class TestTargetRegistry:
-    def test_empty_registry(self, registry: TargetRegistry):
-        assert registry.list_languages() == []
+    def test_builtin_python_registered(self, registry: TargetRegistry):
+        assert "python" in registry.list_languages()
 
     def test_register_and_get(self, registry: TargetRegistry):
         target = FakeTarget()
@@ -64,40 +64,19 @@ class TestTargetRegistry:
         assert registry.get("fake") is target
 
     def test_list_languages_sorted(self, registry: TargetRegistry):
-        class ZTarget(FakeTarget):
-            @property
-            def name(self) -> str:
-                return "zig"
-
-        class ATarget(FakeTarget):
-            @property
-            def name(self) -> str:
-                return "ada"
-
-        registry.register(ZTarget())
-        registry.register(ATarget())
-
-        assert registry.list_languages() == ["ada", "zig"]
-
-    def test_get_unknown_language(self, registry: TargetRegistry):
         registry.register(FakeTarget())
 
+        assert registry.list_languages() == ["fake", "python"]
+
+    def test_get_unknown_language(self, registry: TargetRegistry):
         with pytest.raises(ConfigurationError, match="Unknown target language: 'rust'"):
             registry.get("rust")
 
     def test_get_unknown_shows_available(self, registry: TargetRegistry):
-        registry.register(FakeTarget())
-
         with pytest.raises(ConfigurationError, match="Unknown target language") as exc_info:
             registry.get("rust")
 
-        assert exc_info.value.suggestion == "Available targets: fake"
-
-    def test_get_unknown_empty_registry(self, registry: TargetRegistry):
-        with pytest.raises(ConfigurationError, match="Unknown target language") as exc_info:
-            registry.get("python")
-
-        assert exc_info.value.suggestion == "Available targets: none"
+        assert exc_info.value.suggestion == "Available targets: python"
 
     def test_register_overwrites(self, registry: TargetRegistry):
         target1 = FakeTarget()
