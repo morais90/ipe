@@ -14,13 +14,13 @@ class {{ item_name | class_name }}Resource:
 {% for operation in operations %}
 {% set path_params = operation.parameters | selectattr("location", "equalto", "path") | list %}
 {% set query_params = operation.parameters | selectattr("location", "equalto", "query") | list %}
-    def {{ operation.method_name }}(
+    def {{ operation.operation_id | method_name }}(
         self,
 {% for param in path_params %}
-        {{ param.python_name }}: {{ param.python_type }},
+        {{ param.name | field_name }}: {{ param.schema_type | resolve_type(param.schema_format) }},
 {% endfor %}
 {% for param in query_params %}
-        {{ param.python_name }}: {{ param.python_type }} | None = {% if param.default is not none %}{{ param.default | tojson }}{% else %}None{% endif %},
+        {{ param.name | field_name }}: {{ param.schema_type | resolve_type(param.schema_format) }} | None = {% if param.default is not none %}{{ param.default | tojson }}{% else %}None{% endif %},
 {% endfor %}
     ) -> Any:
 {% if operation.summary %}
@@ -29,7 +29,7 @@ class {{ item_name | class_name }}Resource:
 {% if path_params %}
         url = "{{ operation.path }}".format(
 {% for param in path_params %}
-            {{ param.name }}={{ param.python_name }},
+            {{ param.name }}={{ param.name | field_name }},
 {% endfor %}
         )
 {% else %}
@@ -41,7 +41,7 @@ class {{ item_name | class_name }}Resource:
 {% if query_params %}
             params={
 {% for param in query_params %}
-                "{{ param.name }}": {{ param.python_name }},
+                "{{ param.name }}": {{ param.name | field_name }},
 {% endfor %}
             },
 {% endif %}

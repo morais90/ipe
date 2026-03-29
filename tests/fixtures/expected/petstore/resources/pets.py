@@ -44,7 +44,9 @@ class PetsResource:
         pet_id: str,
     ) -> Any:
         """Info for a specific pet"""
-        url = f"/pets/{pet_id}"
+        url = "/pets/{petId}".format(
+            petId=pet_id,
+        )
         response = self._client.request(
             "GET",
             url,

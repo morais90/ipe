@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import httpx
 
-{% for resource_path, operations in resources.items() %}
+{% for resource_path in resources.keys() | sort %}
 from {{ module_name }}.resources.{{ resource_path | replace("/", ".") }} import {{ resource_path.split("/")[-1] | class_name }}Resource
 {% endfor %}
 
@@ -14,7 +14,7 @@ class {{ api_name | class_name }}Client:
 
     Usage:
         client = {{ api_name | class_name }}Client(base_url="{{ base_url or 'https://api.example.com' }}")
-{% for resource_path, operations in resources.items() %}
+{% for resource_path in resources.keys() | sort %}
         client.{{ resource_path.split("/")[-1] | field_name }}.list()
 {% endfor %}
     """
@@ -33,7 +33,7 @@ class {{ api_name | class_name }}Client:
         if api_key:
             self._client.headers["Authorization"] = f"Bearer {api_key}"
 
-{% for resource_path, operations in resources.items() %}
+{% for resource_path in resources.keys() | sort %}
         self.{{ resource_path.split("/")[-1] | field_name }} = {{ resource_path.split("/")[-1] | class_name }}Resource(self._client)
 {% endfor %}
 

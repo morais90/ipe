@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import httpx
+
 from swagger_petstore.resources.pets import PetsResource
 
 
