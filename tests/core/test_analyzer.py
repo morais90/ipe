@@ -10,146 +10,151 @@ FIXTURES_DIR = Path(__file__).parent.parent / "fixtures"
 
 
 @pytest.fixture
-def petstore_blueprint() -> APIBlueprint:
+def florada_blueprint() -> APIBlueprint:
     analyzer = SpecAnalyzer()
-    spec = analyzer.parse(str(FIXTURES_DIR / "petstore.yaml"))
-    config = IpeConfig(spec_path=str(FIXTURES_DIR / "petstore.yaml"))
+    spec = analyzer.parse(str(FIXTURES_DIR / "florada.yaml"))
+    config = IpeConfig(spec_path=str(FIXTURES_DIR / "florada.yaml"))
     return analyzer.extract(spec, config)
 
 
 class TestSpecAnalyzerParse:
-    def test_parse_petstore(self):
+    def test_parse_florada(self):
         analyzer = SpecAnalyzer()
 
-        spec = analyzer.parse(str(FIXTURES_DIR / "petstore.yaml"))
-
-        assert spec.openapi == "3.0.0"
-        assert spec.info.model_dump(by_alias=True, exclude_unset=True) == {
-            "title": "Swagger Petstore",
-            "version": "1.0.0",
-            "license": {"name": "MIT"},
-        }
-        assert spec.paths is not None
-        assert set(spec.paths.keys()) == {"/pets", "/pets/{petId}"}
-
-    def test_parse_museum(self):
-        analyzer = SpecAnalyzer()
-
-        spec = analyzer.parse(str(FIXTURES_DIR / "museum.yaml"))
+        spec = analyzer.parse(str(FIXTURES_DIR / "florada.yaml"))
 
         assert spec.openapi == "3.1.0"
-        assert spec.info.title == "Redocly Museum API"
-        assert spec.info.version == "1.2.1"
+        assert spec.info.title == "Florada Payments"
         assert spec.paths is not None
-        assert set(spec.paths.keys()) == {
-            "/museum-hours",
-            "/special-events",
-            "/special-events/{eventId}",
-            "/tickets",
-            "/tickets/{ticketId}/qr",
-        }
+
+    def test_parse_florada_v30(self):
+        analyzer = SpecAnalyzer()
+
+        spec = analyzer.parse(str(FIXTURES_DIR / "florada-v3.0.yaml"))
+
+        assert spec.openapi == "3.0.3"
+        assert spec.info.title == "Florada Payments"
 
     def test_refs_resolve_lazily(self):
         analyzer = SpecAnalyzer()
 
-        spec = analyzer.parse(str(FIXTURES_DIR / "petstore.yaml"))
+        spec = analyzer.parse(str(FIXTURES_DIR / "florada.yaml"))
 
-        assert spec.paths is not None
-        get_op = spec.paths["/pets"].get
-        assert get_op is not None
-        assert get_op.responses is not None
-        resp = get_op.responses["200"]
-        assert resp.content is not None
-        schema = resp.content["application/json"].schema_
-        assert schema is not None
-        assert schema.ref == "#/components/schemas/Pets"
-        assert schema.type == "array"
-        assert schema.items is not None
-        assert schema.items.type == "object"
+        assert spec.components is not None
+        assert spec.components.schemas is not None
+        charge = spec.components.schemas["Charge"]
+        assert charge.properties is not None
+        status = charge.properties["status"]
+        assert status.ref == "#/components/schemas/ChargeStatus"
+        assert status.type == "string"
 
 
 class TestSpecAnalyzerExtractOperations:
-    def test_operation_full_output(self, petstore_blueprint: APIBlueprint):
-        assert petstore_blueprint.operations[0].model_dump() == {
-            "operation_id": "listPets",
-            "method": "GET",
-            "path": "/pets",
-            "summary": "List all pets",
-            "description": None,
-            "tags": ["pets"],
-            "parameters": [
-                {
-                    "name": "limit",
-                    "location": "query",
-                    "required": False,
-                    "schema_type": "integer",
-                    "description": "How many items to return at one time (max 100)",
-                    "schema_format": "int32",
-                    "default": None,
-                },
-            ],
-            "request_body": None,
-            "responses": [
-                {
-                    "status_code": "200",
-                    "description": "A paged array of pets",
-                    "content_type": "application/json",
-                    "schema_type": "array",
-                    "schema_format": None,
-                },
-                {
-                    "status_code": "default",
-                    "description": "unexpected error",
-                    "content_type": "application/json",
-                    "schema_type": "object",
-                    "schema_format": None,
-                },
-            ],
-            "security": [],
-        }
+    def test_operation_ids(self, florada_blueprint: APIBlueprint):
+        assert [op.operation_id for op in florada_blueprint.operations] == [
+            "listCharges",
+            "createCharge",
+            "getCharge",
+            "captureCharge",
+            "listChargeRefunds",
+            "createRefund",
+            "listCustomers",
+            "createCustomer",
+            "getCustomer",
+            "updateCustomer",
+            "deleteCustomer",
+            "patchCustomer",
+            "listPaymentMethods",
+            "attachPaymentMethod",
+            "detachPaymentMethod",
+            "listSubscriptions",
+            "createSubscription",
+            "cancelSubscription",
+            "listPlans",
+            "createPlan",
+            "listDisputes",
+            "getDispute",
+            "submitDisputeEvidence",
+            "listWebhooks",
+            "createWebhook",
+            "deleteWebhook",
+        ]
 
-    def test_operation_with_request_body(self, petstore_blueprint: APIBlueprint):
-        assert petstore_blueprint.operations[1].request_body is not None
-        assert petstore_blueprint.operations[1].request_body.model_dump() == {
-            "required": True,
-            "content_types": ["application/json"],
-            "schema_type": "object",
-            "description": None,
-            "schema_format": None,
-        }
+    def test_http_methods(self, florada_blueprint: APIBlueprint):
+        methods = {op.method for op in florada_blueprint.operations}
+        assert methods == {"GET", "POST", "PUT", "PATCH", "DELETE"}
 
-    def test_path_parameter(self, petstore_blueprint: APIBlueprint):
-        assert petstore_blueprint.operations[2].parameters[0].model_dump() == {
-            "name": "petId",
-            "location": "path",
-            "required": True,
-            "schema_type": "string",
-            "description": "The id of the pet to retrieve",
-            "schema_format": None,
-            "default": None,
-        }
+    def test_operation_with_query_params(self, florada_blueprint: APIBlueprint):
+        list_charges = florada_blueprint.operations[0]
+        assert list_charges.operation_id == "listCharges"
+        assert [p.name for p in list_charges.parameters] == [
+            "status",
+            "customer_id",
+            "created_after",
+            "created_before",
+            "limit",
+            "cursor",
+        ]
+
+    def test_operation_with_param_details(self, florada_blueprint: APIBlueprint):
+        list_charges = florada_blueprint.operations[0]
+        assert list_charges.operation_id == "listCharges"
+        assert list_charges.parameters[4].name == "limit"
+        assert list_charges.parameters[4].schema_type == "integer"
+        assert list_charges.parameters[4].schema_format == "int32"
 
 
 class TestSpecAnalyzerExtractModels:
-    def test_pet_model_full_output(self, petstore_blueprint: APIBlueprint):
-        assert petstore_blueprint.models[0].model_dump() == {
-            "name": "Pet",
+    def test_model_names(self, florada_blueprint: APIBlueprint):
+        assert {m.name for m in florada_blueprint.models} == {
+            "Address",
+            "AttachPaymentMethodRequest",
+            "BillingInterval",
+            "BoletoDetails",
+            "CancelSubscriptionRequest",
+            "CaptureChargeRequest",
+            "CardDetails",
+            "Charge",
+            "ChargeList",
+            "ChargeStatus",
+            "CreateChargeRequest",
+            "CreateCustomerRequest",
+            "CreatePlanRequest",
+            "CreateRefundRequest",
+            "CreateSubscriptionRequest",
+            "CreateWebhookRequest",
+            "Customer",
+            "CustomerList",
+            "Dispute",
+            "DisputeEvidence",
+            "DisputeReason",
+            "DisputeStatus",
+            "Error",
+            "FieldError",
+            "Money",
+            "PaginationMeta",
+            "PatchCustomerRequest",
+            "PaymentMethod",
+            "PixDetails",
+            "Plan",
+            "Refund",
+            "Subscription",
+            "SubscriptionStatus",
+            "UpdateCustomerRequest",
+            "ValidationErrorResponse",
+            "WebhookEndpoint",
+        }
+
+    def test_money_model(self, florada_blueprint: APIBlueprint):
+        money = next(m for m in florada_blueprint.models if m.name == "Money")
+        assert money.model_dump() == {
+            "name": "Money",
             "description": None,
             "properties": [
                 {
-                    "name": "id",
+                    "name": "amount",
                     "schema_type": "integer",
-                    "description": None,
-                    "schema_format": "int64",
-                    "required": True,
-                    "nullable": False,
-                    "default": None,
-                    "enum_values": None,
-                },
-                {
-                    "name": "name",
-                    "schema_type": "string",
-                    "description": None,
+                    "description": "Amount in smallest currency unit (e.g., cents)",
                     "schema_format": None,
                     "required": True,
                     "nullable": False,
@@ -157,72 +162,59 @@ class TestSpecAnalyzerExtractModels:
                     "enum_values": None,
                 },
                 {
-                    "name": "tag",
+                    "name": "currency",
                     "schema_type": "string",
-                    "description": None,
+                    "description": "ISO 4217 currency code",
                     "schema_format": None,
-                    "required": False,
+                    "required": True,
                     "nullable": False,
                     "default": None,
                     "enum_values": None,
                 },
             ],
-            "required_fields": ["id", "name"],
+            "required_fields": ["amount", "currency"],
             "validation_rules": [],
         }
 
-    def test_error_model_full_output(self, petstore_blueprint: APIBlueprint):
-        assert petstore_blueprint.models[1].model_dump() == {
-            "name": "Error",
-            "description": None,
-            "properties": [
-                {
-                    "name": "code",
-                    "schema_type": "integer",
-                    "description": None,
-                    "schema_format": "int32",
-                    "required": True,
-                    "nullable": False,
-                    "default": None,
-                    "enum_values": None,
-                },
-                {
-                    "name": "message",
-                    "schema_type": "string",
-                    "description": None,
-                    "schema_format": None,
-                    "required": True,
-                    "nullable": False,
-                    "default": None,
-                    "enum_values": None,
-                },
-            ],
-            "required_fields": ["code", "message"],
-            "validation_rules": [],
+
+class TestSpecAnalyzerExtractAuth:
+    def test_auth_schemes(self, florada_blueprint: APIBlueprint):
+        assert {s.name for s in florada_blueprint.auth_schemes} == {
+            "bearerAuth",
+            "apiKeyAuth",
+            "oauth2",
         }
 
-    def test_skips_array_schemas(self, petstore_blueprint: APIBlueprint):
-        assert {m.name for m in petstore_blueprint.models} == {"Pet", "Error"}
+    def test_bearer_auth(self, florada_blueprint: APIBlueprint):
+        bearer = next(s for s in florada_blueprint.auth_schemes if s.name == "bearerAuth")
+        assert bearer.model_dump() == {
+            "name": "bearerAuth",
+            "type": "http",
+            "scheme": "bearer",
+            "location": None,
+            "header_name": "Authorization",
+        }
+
+    def test_api_key_auth(self, florada_blueprint: APIBlueprint):
+        api_key = next(s for s in florada_blueprint.auth_schemes if s.name == "apiKeyAuth")
+        assert api_key.model_dump() == {
+            "name": "apiKeyAuth",
+            "type": "apiKey",
+            "scheme": None,
+            "location": "header",
+            "header_name": "X-Florada-Key",
+        }
 
 
 class TestSpecAnalyzerExtractMeta:
-    def test_blueprint_metadata(self):
-        analyzer = SpecAnalyzer()
-        spec = analyzer.parse(str(FIXTURES_DIR / "petstore.yaml"))
-        config = IpeConfig(
-            spec_path=str(FIXTURES_DIR / "petstore.yaml"),
-            module_name="petstore",
-        )
-
-        blueprint = analyzer.extract(spec, config)
-
-        assert blueprint.api_name == "Swagger Petstore"
-        assert blueprint.spec_version == "1.0.0"
-        assert blueprint.spec_description is None
-        assert blueprint.base_url == "http://petstore.swagger.io/v1"
-        assert blueprint.server_urls == ["http://petstore.swagger.io/v1"]
-        assert blueprint.module_name == "petstore"
-        assert blueprint.ipe_version == "0.1.0"
-
-    def test_derive_module_name(self, petstore_blueprint: APIBlueprint):
-        assert petstore_blueprint.module_name == "swagger_petstore"
+    def test_blueprint_metadata(self, florada_blueprint: APIBlueprint):
+        assert florada_blueprint.api_name == "Florada Payments"
+        assert florada_blueprint.spec_version == "1.0.0"
+        assert florada_blueprint.spec_description == "Payment processing platform API. Accept payments, manage customers, subscriptions, and disputes."
+        assert florada_blueprint.base_url == "https://api.florada.dev/v1"
+        assert florada_blueprint.server_urls == [
+            "https://api.florada.dev/v1",
+            "https://sandbox.florada.dev/v1",
+        ]
+        assert florada_blueprint.module_name == "florada_payments"
+        assert florada_blueprint.ipe_version == "0.1.0"

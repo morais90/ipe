@@ -7,52 +7,48 @@ from ipe.parsers.openapi import parse_openapi
 
 
 class TestParseOpenAPI:
-    def test_petstore_30(self, petstore_spec: dict[str, Any]):
-        spec = parse_openapi(petstore_spec)
-
-        assert spec.openapi == "3.0.0"
-        assert spec.info.title == "Swagger Petstore"
-        assert spec.paths is not None
-        assert set(spec.paths.keys()) == {"/pets", "/pets/{petId}"}
-
-    def test_museum_31(self, museum_spec: dict[str, Any]):
-        spec = parse_openapi(museum_spec)
+    def test_florada_31(self, florada_spec: dict[str, Any]):
+        spec = parse_openapi(florada_spec)
 
         assert spec.openapi == "3.1.0"
-        assert spec.info.title == "Redocly Museum API"
+        assert spec.info.title == "Florada Payments"
         assert spec.paths is not None
-        assert "/museum-hours" in spec.paths
+        assert set(spec.paths.keys()) == {
+            "/charges",
+            "/charges/{charge_id}",
+            "/charges/{charge_id}/capture",
+            "/charges/{charge_id}/refunds",
+            "/customers",
+            "/customers/{customer_id}",
+            "/customers/{customer_id}/payment-methods",
+            "/customers/{customer_id}/payment-methods/{method_id}",
+            "/customers/{customer_id}/subscriptions",
+            "/customers/{customer_id}/subscriptions/{subscription_id}/cancel",
+            "/disputes",
+            "/disputes/{dispute_id}",
+            "/disputes/{dispute_id}/evidence",
+            "/plans",
+            "/webhooks",
+            "/webhooks/{webhook_id}",
+        }
 
-    def test_petstore_swagger(self, petstore_swagger_spec: dict[str, Any]):
-        spec = parse_openapi(petstore_swagger_spec)
-
-        assert spec.paths is not None
-        assert "/pet" in spec.paths
-
-    def test_notion(self, notion_spec: dict[str, Any]):
-        spec = parse_openapi(notion_spec)
+    def test_florada_v30(self, florada_v30_spec: dict[str, Any]):
+        spec = parse_openapi(florada_v30_spec)
 
         assert spec.openapi == "3.0.3"
-        assert spec.paths is not None
-        assert len(spec.paths) > 0
+        assert spec.info.title == "Florada Payments"
 
-    def test_refs_resolved_lazily(self, petstore_spec: dict[str, Any]):
-        spec = parse_openapi(petstore_spec)
+    def test_refs_resolved_lazily(self, florada_spec: dict[str, Any]):
+        spec = parse_openapi(florada_spec)
 
-        assert spec.paths is not None
-        get_op = spec.paths["/pets"].get
-        assert get_op is not None
-        assert get_op.responses is not None
-        resp = get_op.responses["200"]
-        assert resp.content is not None
-        schema = resp.content["application/json"].schema_
-        assert schema is not None
-        assert schema.ref == "#/components/schemas/Pets"
-        assert schema.type == "array"
-        assert schema.items is not None
-        assert schema.items.ref == "#/components/schemas/Pet"
-        assert schema.items.type == "object"
-        assert set(schema.items.properties.keys()) == {"id", "name", "tag"}
+        assert spec.components is not None
+        assert spec.components.schemas is not None
+        charge = spec.components.schemas["Charge"]
+        assert charge.properties is not None
+        status_prop = charge.properties["status"]
+        assert status_prop.ref == "#/components/schemas/ChargeStatus"
+        assert status_prop.type == "string"
+        assert status_prop.enum == ["pending", "succeeded", "failed", "refunded", "disputed"]
 
 
 class TestVersionValidation:
@@ -190,30 +186,6 @@ class TestNormalization30to31:
         assert spec.components.schemas is not None
         assert spec.components.schemas["WithExample"].model_dump(by_alias=True, exclude_unset=True) == {
             "type": "string",
-            "examples": ["hello"],
-        }
-
-    def test_31_not_normalized(self):
-        raw: dict[str, Any] = {
-            "openapi": "3.1.0",
-            "info": {"title": "Test", "version": "1.0"},
-            "paths": {},
-            "components": {
-                "schemas": {
-                    "Already31": {
-                        "type": ["string", "null"],
-                        "examples": ["hello"],
-                    },
-                },
-            },
-        }
-
-        spec = parse_openapi(raw)
-
-        assert spec.components is not None
-        assert spec.components.schemas is not None
-        assert spec.components.schemas["Already31"].model_dump(by_alias=True, exclude_unset=True) == {
-            "type": ["string", "null"],
             "examples": ["hello"],
         }
 

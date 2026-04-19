@@ -7,8 +7,11 @@ from pydantic import BaseModel
 
 class {{ model.name | class_name }}(BaseModel):
 {% if model.description %}
-    """{{ model.description }}"""
+    """{{ model.description | strip_html | wordwrap(72) }}"""
 
+{% endif %}
+{% if not model.properties %}
+    pass
 {% endif %}
 {% for prop in model.properties %}
 {% if prop.required and not prop.nullable %}

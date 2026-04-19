@@ -1,11 +1,23 @@
 """{{ api_name }} API models."""
 
-{% for model in models | sort(attribute="name") %}
-from {{ module_name }}.models.{{ model.name | module_name }} import {{ model.name | class_name }}
-{% endfor %}
-
 __all__ = [
 {% for model in models | sort(attribute="name") %}
     "{{ model.name | class_name }}",
 {% endfor %}
 ]
+
+
+def __getattr__(name: str):
+    """Lazy import models on first access."""
+    from importlib import import_module
+
+    _model_map = {
+{% for model in models | sort(attribute="name") %}
+        "{{ model.name | class_name }}": "{{ module_name }}.models.{{ model.name | module_name }}",
+{% endfor %}
+    }
+
+    if name in _model_map:
+        module = import_module(_model_map[name])
+        return getattr(module, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

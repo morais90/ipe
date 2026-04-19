@@ -7,6 +7,10 @@ from jinja2 import ChoiceLoader, Environment, FileSystemLoader
 from ipe.targets.base import LanguageTarget
 
 _REPEATED_PATTERN = re.compile(r"\{(\w+)\}")
+_HTML_LINK = re.compile(r'<a[^>]*href=["\']([^"\']*)["\'][^>]*>([^<]*)</a>')
+_HTML_TAG = re.compile(r"<[^>]+>")
+_MD_LINK = re.compile(r"\[([^\]]+)\]\([^)]+\)")
+_BLANK_LINES = re.compile(r"\n\s*\n\s*\n")
 
 _SINGULAR: dict[str, str] = {
     "models": "model",
@@ -57,6 +61,7 @@ class TemplateTreeRenderer:
         env.filters["field_name"] = naming.field_name
         env.filters["module_name"] = naming.module_name
         env.filters["resolve_type"] = self._resolve_type_filter
+        env.filters["strip_html"] = _strip_html
 
         self._env = env
         return env
@@ -136,3 +141,11 @@ class TemplateTreeRenderer:
 
 def _strip_jinja(path: Path) -> Path:
     return path.with_name(path.name.removesuffix(".jinja"))
+
+
+def _strip_html(text: str) -> str:
+    text = _HTML_LINK.sub(r"\2", text)
+    text = _HTML_TAG.sub("", text)
+    text = _MD_LINK.sub(r"\1", text)
+    text = _BLANK_LINES.sub("\n\n", text)
+    return text.strip()

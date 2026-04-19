@@ -16,19 +16,10 @@ def target() -> PythonTarget:
 
 
 @pytest.fixture
-def petstore_operations() -> list[StandardOperation]:
+def florada_operations() -> list[StandardOperation]:
     analyzer = SpecAnalyzer()
-    spec = analyzer.parse(str(FIXTURES_DIR / "petstore.yaml"))
-    config = IpeConfig(spec_path=str(FIXTURES_DIR / "petstore.yaml"))
-    blueprint = analyzer.extract(spec, config)
-    return blueprint.operations
-
-
-@pytest.fixture
-def museum_operations() -> list[StandardOperation]:
-    analyzer = SpecAnalyzer()
-    spec = analyzer.parse(str(FIXTURES_DIR / "museum.yaml"))
-    config = IpeConfig(spec_path=str(FIXTURES_DIR / "museum.yaml"))
+    spec = analyzer.parse(str(FIXTURES_DIR / "florada.yaml"))
+    config = IpeConfig(spec_path=str(FIXTURES_DIR / "florada.yaml"))
     blueprint = analyzer.extract(spec, config)
     return blueprint.operations
 
@@ -45,21 +36,23 @@ class TestPythonTargetProperties:
 
 
 class TestPythonTargetResolveType:
-    def test_petstore_parameter_types(self, target: PythonTarget, petstore_operations: list[StandardOperation]):
-        list_pets = petstore_operations[0]
-        limit_param = list_pets.parameters[0]
+    def test_parameter_types(self, target: PythonTarget, florada_operations: list[StandardOperation]):
+        list_charges = florada_operations[0]
+        limit_param = next(p for p in list_charges.parameters if p.name == "limit")
 
         assert target.resolve_type(limit_param.schema_type, limit_param.schema_format) == "int"
 
-    def test_petstore_property_types(self, target: PythonTarget):
+    def test_property_types(self, target: PythonTarget):
         analyzer = SpecAnalyzer()
-        spec = analyzer.parse(str(FIXTURES_DIR / "petstore.yaml"))
-        config = IpeConfig(spec_path=str(FIXTURES_DIR / "petstore.yaml"))
+        spec = analyzer.parse(str(FIXTURES_DIR / "florada.yaml"))
+        config = IpeConfig(spec_path=str(FIXTURES_DIR / "florada.yaml"))
         blueprint = analyzer.extract(spec, config)
-        pet_model = blueprint.models[0]
+        money_model = next(m for m in blueprint.models if m.name == "Money")
+        amount_prop = next(p for p in money_model.properties if p.name == "amount")
+        currency_prop = next(p for p in money_model.properties if p.name == "currency")
 
-        assert target.resolve_type(pet_model.properties[0].schema_type, pet_model.properties[0].schema_format) == "int"
-        assert target.resolve_type(pet_model.properties[1].schema_type, pet_model.properties[1].schema_format) == "str"
+        assert target.resolve_type(amount_prop.schema_type, amount_prop.schema_format) == "int"
+        assert target.resolve_type(currency_prop.schema_type, currency_prop.schema_format) == "str"
 
     def test_unknown_type_returns_any(self, target: PythonTarget):
         assert target.resolve_type("unknown", None) == "Any"
@@ -69,20 +62,19 @@ class TestPythonTargetResolveType:
 
 
 class TestPythonTargetGroup:
-    def test_petstore_flat(self, target: PythonTarget, petstore_operations: list[StandardOperation]):
-        resources = target.group(petstore_operations)
-
-        assert set(resources.keys()) == {"pets"}
-        assert resources["pets"][0].operation_id == "listPets"
-        assert resources["pets"][1].operation_id == "createPets"
-        assert resources["pets"][2].operation_id == "showPetById"
-
-    def test_museum_nested(self, target: PythonTarget, museum_operations: list[StandardOperation]):
-        resources = target.group(museum_operations)
+    def test_groups_by_nested_path(self, target: PythonTarget, florada_operations: list[StandardOperation]):
+        resources = target.group(florada_operations)
 
         assert set(resources.keys()) == {
-            "museum-hours",
-            "special-events",
-            "tickets",
-            "tickets.qr",
+            "charges",
+            "charges.capture",
+            "charges.refunds",
+            "customers",
+            "customers.payment-methods",
+            "customers.subscriptions",
+            "customers.subscriptions.cancel",
+            "disputes",
+            "disputes.evidence",
+            "plans",
+            "webhooks",
         }

@@ -14,6 +14,8 @@ class {{ item_name | class_name }}Resource:
 {% for operation in operations %}
 {% set path_params = operation.parameters | selectattr("location", "equalto", "path") | list %}
 {% set query_params = operation.parameters | selectattr("location", "equalto", "query") | list %}
+{% set has_params = path_params or query_params %}
+{% set has_details = operation.description or has_params %}
     def {{ operation.operation_id | method_name }}(
         self,
 {% for param in path_params %}
@@ -23,8 +25,25 @@ class {{ item_name | class_name }}Resource:
         {{ param.name | field_name }}: {{ param.schema_type | resolve_type(param.schema_format) }} | None = {% if param.default is not none %}{{ param.default | tojson }}{% else %}None{% endif %},
 {% endfor %}
     ) -> Any:
-{% if operation.summary %}
-        """{{ operation.summary }}"""
+{% if operation.summary and not has_details %}
+        """{{ operation.summary | strip_html }}"""
+{% elif operation.summary or has_details %}
+        """{{ (operation.summary or '') | strip_html }}
+{% if operation.description %}
+
+        {{ operation.description | strip_html | wordwrap(72) }}
+{% endif %}
+{% if has_params %}
+
+        Args:
+{% for param in path_params %}
+            {{ param.name | field_name }}: {{ (param.description or param.name) | strip_html }}
+{% endfor %}
+{% for param in query_params %}
+            {{ param.name | field_name }}: {{ (param.description or param.name) | strip_html }}
+{% endfor %}
+{% endif %}
+        """
 {% endif %}
 {% if path_params %}
         url = "{{ operation.path }}".format(

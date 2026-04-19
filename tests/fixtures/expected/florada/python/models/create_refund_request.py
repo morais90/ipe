@@ -1,0 +1,10 @@
+"""CreateRefundRequest model."""
+
+from __future__ import annotations
+
+from pydantic import BaseModel
+
+
+class CreateRefundRequest(BaseModel):
+    amount: dict[str, Any] | None = None
+    reason: str | None = None

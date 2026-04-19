@@ -66,31 +66,19 @@ class TestResolveSimpleRefs:
 
 
 class TestResolveRealSpecs:
-    def test_petstore_expanded_spec_allof(self, petstore_expanded_spec: dict[str, Any]):
-        result = resolve_refs(petstore_expanded_spec)
+    def test_florada_response_ref(self, florada_spec: dict[str, Any]):
+        result = resolve_refs(florada_spec)
 
-        pet_schema = result["components"]["schemas"]["Pet"]
-        assert pet_schema["allOf"][0] == {
-            "type": "object",
-            "required": ["name"],
-            "properties": {
-                "name": {"type": "string"},
-                "tag": {"type": "string"},
-            },
-        }
+        error_schema = result["components"]["responses"]["BadRequest"]["content"]["application/json"]["schema"]
+        assert error_schema == result["components"]["schemas"]["Error"]
 
-    def test_petstore_expanded_spec_response_ref(self, petstore_expanded_spec: dict[str, Any]):
-        result = resolve_refs(petstore_expanded_spec)
+    def test_florada_parameter_ref(self, florada_spec: dict[str, Any]):
+        result = resolve_refs(florada_spec)
 
-        error_schema = result["paths"]["/pets"]["get"]["responses"]["default"]["content"]["application/json"]["schema"]
-        assert error_schema == {
-            "type": "object",
-            "required": ["code", "message"],
-            "properties": {
-                "code": {"type": "integer", "format": "int32"},
-                "message": {"type": "string"},
-            },
-        }
+        charge_get = result["paths"]["/charges/{charge_id}"]["get"]
+        charge_id_param = charge_get["parameters"][0]
+        assert charge_id_param["name"] == "charge_id"
+        assert charge_id_param["in"] == "path"
 
 
 class TestCircularRefs:

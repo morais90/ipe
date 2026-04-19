@@ -12,16 +12,16 @@ FIXTURES_DIR = Path(__file__).parent.parent / "fixtures"
 
 class TestFetchFromFile:
     def test_load_yaml(self):
-        result = fetch_spec(str(FIXTURES_DIR / "petstore.yaml"))
-
-        assert result["openapi"] == "3.0.0"
-        assert result["info"]["title"] == "Swagger Petstore"
-
-    def test_load_museum_31(self):
-        result = fetch_spec(str(FIXTURES_DIR / "museum.yaml"))
+        result = fetch_spec(str(FIXTURES_DIR / "florada.yaml"))
 
         assert result["openapi"] == "3.1.0"
-        assert result["info"]["title"] == "Redocly Museum API"
+        assert result["info"]["title"] == "Florada Payments"
+
+    def test_load_v30(self):
+        result = fetch_spec(str(FIXTURES_DIR / "florada-v3.0.yaml"))
+
+        assert result["openapi"] == "3.0.3"
+        assert result["info"]["title"] == "Florada Payments"
 
     def test_file_not_found(self):
         with pytest.raises(ValidationError, match="not found"):

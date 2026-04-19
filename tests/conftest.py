@@ -18,28 +18,13 @@ def load_fixture_text(name: str) -> str:
 
 
 @pytest.fixture
-def petstore_spec() -> dict[str, Any]:
-    return load_fixture("petstore.yaml")
+def florada_spec() -> dict[str, Any]:
+    return load_fixture("florada.yaml")
 
 
 @pytest.fixture
-def petstore_expanded_spec() -> dict[str, Any]:
-    return load_fixture("petstore-expanded.yaml")
-
-
-@pytest.fixture
-def api_with_examples_spec() -> dict[str, Any]:
-    return load_fixture("api-with-examples.yaml")
-
-
-@pytest.fixture
-def museum_spec() -> dict[str, Any]:
-    return load_fixture("museum.yaml")
-
-
-@pytest.fixture
-def petstore_swagger_spec() -> dict[str, Any]:
-    return load_fixture("petstore-swagger.yaml")
+def florada_v30_spec() -> dict[str, Any]:
+    return load_fixture("florada-v3.0.yaml")
 
 
 @pytest.fixture
@@ -55,18 +40,3 @@ def invalid_spec() -> dict[str, Any]:
 @pytest.fixture
 def circular_ref_spec() -> dict[str, Any]:
     return load_fixture("circular_ref.yaml")
-
-
-@pytest.fixture
-def notion_spec() -> dict[str, Any]:
-    return load_fixture("notion.yaml")
-
-
-@pytest.fixture
-def github_spec() -> dict[str, Any]:
-    return load_fixture("github.yaml")
-
-
-@pytest.fixture
-def stripe_spec() -> dict[str, Any]:
-    return load_fixture("stripe.yaml")

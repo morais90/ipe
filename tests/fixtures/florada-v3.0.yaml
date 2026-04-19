@@ -1,0 +1,1309 @@
+openapi: 3.0.3
+info:
+  title: Florada Payments
+  description: Payment processing platform API. Accept payments, manage customers, subscriptions, and disputes.
+  version: 1.0.0
+  contact:
+    name: Florada Team
+    email: api@florada.dev
+  license:
+    name: MIT
+servers:
+  - url: https://api.florada.dev/v1
+    description: Production
+  - url: https://sandbox.florada.dev/v1
+    description: Sandbox
+security:
+  - bearerAuth: []
+tags:
+  - name: Charges
+    description: Create and manage payment charges
+  - name: Refunds
+    description: Refund management
+  - name: Customers
+    description: Customer management
+  - name: PaymentMethods
+    description: Payment method management
+  - name: Subscriptions
+    description: Recurring billing
+  - name: Plans
+    description: Subscription plans
+  - name: Disputes
+    description: Dispute and chargeback management
+  - name: Webhooks
+    description: Webhook endpoints
+paths:
+  # --- Charges ---
+  /charges:
+    get:
+      operationId: listCharges
+      summary: List charges
+      description: Returns a paginated list of charges. Supports filtering by status, customer, and date range.
+      tags: [Charges]
+      parameters:
+        - name: status
+          in: query
+          description: Filter by charge status
+          schema:
+            type: string
+            enum: [pending, succeeded, failed, refunded, disputed]
+        - name: customer_id
+          in: query
+          description: Filter by customer
+          schema:
+            type: string
+            format: uuid
+        - name: created_after
+          in: query
+          description: Filter charges created after this date
+          schema:
+            type: string
+            format: date-time
+        - name: created_before
+          in: query
+          description: Filter charges created before this date
+          schema:
+            type: string
+            format: date-time
+        - name: limit
+          in: query
+          description: Maximum number of results (1-100)
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: cursor
+          in: query
+          description: Pagination cursor
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Paginated list of charges
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChargeList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: createCharge
+      summary: Create a charge
+      description: Creates a new payment charge. The charge is processed immediately for card payments, or generates a payment voucher for boleto/pix.
+      tags: [Charges]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateChargeRequest"
+      responses:
+        "201":
+          description: Charge created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Charge"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /charges/{charge_id}:
+    get:
+      operationId: getCharge
+      summary: Retrieve a charge
+      tags: [Charges]
+      parameters:
+        - $ref: "#/components/parameters/ChargeId"
+        - name: expand
+          in: query
+          description: Related resources to include in the response
+          schema:
+            type: array
+            items:
+              type: string
+              enum: [customer, payment_method, refunds, dispute]
+      responses:
+        "200":
+          description: Charge details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Charge"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /charges/{charge_id}/capture:
+    post:
+      operationId: captureCharge
+      summary: Capture a charge
+      description: Captures a previously authorized charge. Only applicable to card payments with capture_method=manual.
+      tags: [Charges]
+      parameters:
+        - $ref: "#/components/parameters/ChargeId"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CaptureChargeRequest"
+      responses:
+        "200":
+          description: Charge captured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Charge"
+        "409":
+          description: Charge cannot be captured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  # --- Refunds ---
+  /charges/{charge_id}/refunds:
+    get:
+      operationId: listChargeRefunds
+      summary: List refunds for a charge
+      tags: [Refunds]
+      parameters:
+        - $ref: "#/components/parameters/ChargeId"
+      responses:
+        "200":
+          description: List of refunds
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Refund"
+    post:
+      operationId: createRefund
+      summary: Create a refund
+      description: Refunds a charge fully or partially. Multiple partial refunds are allowed up to the original charge amount.
+      tags: [Refunds]
+      parameters:
+        - $ref: "#/components/parameters/ChargeId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRefundRequest"
+      responses:
+        "201":
+          description: Refund created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Refund"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          description: Charge cannot be refunded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  # --- Customers ---
+  /customers:
+    get:
+      operationId: listCustomers
+      summary: List customers
+      tags: [Customers]
+      parameters:
+        - name: email
+          in: query
+          schema:
+            type: string
+            format: email
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: cursor
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of customers
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerList"
+    post:
+      operationId: createCustomer
+      summary: Create a customer
+      tags: [Customers]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCustomerRequest"
+      responses:
+        "201":
+          description: Customer created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+  /customers/{customer_id}:
+    get:
+      operationId: getCustomer
+      summary: Retrieve a customer
+      tags: [Customers]
+      parameters:
+        - $ref: "#/components/parameters/CustomerId"
+      responses:
+        "200":
+          description: Customer details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      operationId: updateCustomer
+      summary: Update a customer
+      description: Replaces all customer fields.
+      tags: [Customers]
+      parameters:
+        - $ref: "#/components/parameters/CustomerId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCustomerRequest"
+      responses:
+        "200":
+          description: Customer updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+    patch:
+      operationId: patchCustomer
+      summary: Partially update a customer
+      tags: [Customers]
+      parameters:
+        - $ref: "#/components/parameters/CustomerId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchCustomerRequest"
+      responses:
+        "200":
+          description: Customer updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+    delete:
+      operationId: deleteCustomer
+      summary: Delete a customer
+      description: Permanently deletes a customer and all associated data. Active subscriptions will be cancelled.
+      tags: [Customers]
+      parameters:
+        - $ref: "#/components/parameters/CustomerId"
+      responses:
+        "204":
+          description: Customer deleted
+        "409":
+          description: Customer has active charges
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  # --- Payment Methods ---
+  /customers/{customer_id}/payment-methods:
+    get:
+      operationId: listPaymentMethods
+      summary: List payment methods for a customer
+      tags: [PaymentMethods]
+      parameters:
+        - $ref: "#/components/parameters/CustomerId"
+        - name: type
+          in: query
+          description: Filter by payment method type
+          schema:
+            type: string
+            enum: [card, pix, boleto]
+      responses:
+        "200":
+          description: List of payment methods
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PaymentMethod"
+    post:
+      operationId: attachPaymentMethod
+      summary: Attach a payment method to a customer
+      tags: [PaymentMethods]
+      parameters:
+        - $ref: "#/components/parameters/CustomerId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AttachPaymentMethodRequest"
+      responses:
+        "201":
+          description: Payment method attached
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentMethod"
+  /customers/{customer_id}/payment-methods/{method_id}:
+    delete:
+      operationId: detachPaymentMethod
+      summary: Detach a payment method
+      tags: [PaymentMethods]
+      parameters:
+        - $ref: "#/components/parameters/CustomerId"
+        - name: method_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Payment method detached
+        "404":
+          $ref: "#/components/responses/NotFound"
+  # --- Subscriptions ---
+  /customers/{customer_id}/subscriptions:
+    get:
+      operationId: listSubscriptions
+      summary: List subscriptions for a customer
+      tags: [Subscriptions]
+      parameters:
+        - $ref: "#/components/parameters/CustomerId"
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, past_due, cancelled, trialing]
+      responses:
+        "200":
+          description: List of subscriptions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Subscription"
+    post:
+      operationId: createSubscription
+      summary: Create a subscription
+      description: Subscribes a customer to a plan. First invoice is created immediately.
+      tags: [Subscriptions]
+      parameters:
+        - $ref: "#/components/parameters/CustomerId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSubscriptionRequest"
+      responses:
+        "201":
+          description: Subscription created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Subscription"
+  /customers/{customer_id}/subscriptions/{subscription_id}/cancel:
+    post:
+      operationId: cancelSubscription
+      summary: Cancel a subscription
+      description: Cancels a subscription. Can be immediate or at end of current billing period.
+      tags: [Subscriptions]
+      parameters:
+        - $ref: "#/components/parameters/CustomerId"
+        - name: subscription_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CancelSubscriptionRequest"
+      responses:
+        "200":
+          description: Subscription cancelled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Subscription"
+  # --- Plans ---
+  /plans:
+    get:
+      operationId: listPlans
+      summary: List plans
+      tags: [Plans]
+      parameters:
+        - name: active
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: List of plans
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Plan"
+    post:
+      operationId: createPlan
+      summary: Create a plan
+      tags: [Plans]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePlanRequest"
+      responses:
+        "201":
+          description: Plan created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Plan"
+  # --- Disputes ---
+  /disputes:
+    get:
+      operationId: listDisputes
+      summary: List disputes
+      tags: [Disputes]
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [open, under_review, won, lost]
+      responses:
+        "200":
+          description: List of disputes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Dispute"
+  /disputes/{dispute_id}:
+    get:
+      operationId: getDispute
+      summary: Retrieve a dispute
+      tags: [Disputes]
+      parameters:
+        - name: dispute_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Dispute details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Dispute"
+  /disputes/{dispute_id}/evidence:
+    post:
+      operationId: submitDisputeEvidence
+      summary: Submit dispute evidence
+      description: Submit evidence to contest a dispute. Can only be submitted once while dispute is open.
+      tags: [Disputes]
+      parameters:
+        - name: dispute_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DisputeEvidence"
+      responses:
+        "200":
+          description: Evidence submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Dispute"
+        "409":
+          description: Evidence already submitted or dispute closed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  # --- Webhooks ---
+  /webhooks:
+    get:
+      operationId: listWebhooks
+      summary: List webhook endpoints
+      tags: [Webhooks]
+      responses:
+        "200":
+          description: List of webhooks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WebhookEndpoint"
+    post:
+      operationId: createWebhook
+      summary: Create a webhook endpoint
+      tags: [Webhooks]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWebhookRequest"
+      responses:
+        "201":
+          description: Webhook created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookEndpoint"
+  /webhooks/{webhook_id}:
+    delete:
+      operationId: deleteWebhook
+      summary: Delete a webhook endpoint
+      tags: [Webhooks]
+      parameters:
+        - name: webhook_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Webhook deleted
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-Florada-Key
+    oauth2:
+      type: oauth2
+      flows:
+        authorizationCode:
+          authorizationUrl: https://auth.florada.dev/authorize
+          tokenUrl: https://auth.florada.dev/token
+          scopes:
+            charges:read: Read charges
+            charges:write: Create charges
+            customers:read: Read customers
+            customers:write: Manage customers
+            subscriptions:read: Read subscriptions
+            subscriptions:write: Manage subscriptions
+  parameters:
+    ChargeId:
+      name: charge_id
+      in: path
+      required: true
+      description: Unique charge identifier
+      schema:
+        type: string
+        format: uuid
+    CustomerId:
+      name: customer_id
+      in: path
+      required: true
+      description: Unique customer identifier
+      schema:
+        type: string
+        format: uuid
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    ValidationError:
+      description: Validation failed
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ValidationErrorResponse"
+  schemas:
+    # --- Pagination ---
+    PaginationMeta:
+      type: object
+      properties:
+        total:
+          type: integer
+        has_more:
+          type: boolean
+        next_cursor:
+          type: string
+          nullable: true
+    # --- Money ---
+    Money:
+      type: object
+      required: [amount, currency]
+      properties:
+        amount:
+          type: integer
+          description: Amount in smallest currency unit (e.g., cents)
+          minimum: 0
+        currency:
+          type: string
+          description: ISO 4217 currency code
+          minLength: 3
+          maxLength: 3
+          pattern: "^[A-Z]{3}$"
+    # --- Charges ---
+    ChargeStatus:
+      type: string
+      enum: [pending, succeeded, failed, refunded, disputed]
+    Charge:
+      type: object
+      required: [id, amount, currency, status, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        amount:
+          $ref: "#/components/schemas/Money"
+        status:
+          $ref: "#/components/schemas/ChargeStatus"
+        description:
+          type: string
+          nullable: true
+        customer:
+          oneOf:
+            - $ref: "#/components/schemas/Customer"
+            - type: "null"
+        customer_id:
+          type: string
+          nullable: true
+          format: uuid
+        payment_method:
+          $ref: "#/components/schemas/PaymentMethod"
+        payment_method_id:
+          type: string
+          format: uuid
+        capture_method:
+          type: string
+          enum: [automatic, manual]
+          default: automatic
+        captured:
+          type: boolean
+          default: false
+        refunded_amount:
+          $ref: "#/components/schemas/Money"
+        dispute:
+          oneOf:
+            - $ref: "#/components/schemas/Dispute"
+            - type: "null"
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        statement_descriptor:
+          type: string
+          nullable: true
+          maxLength: 22
+        created_at:
+          type: string
+          format: date-time
+        captured_at:
+          type: string
+          nullable: true
+          format: date-time
+    ChargeList:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Charge"
+        meta:
+          $ref: "#/components/schemas/PaginationMeta"
+    CreateChargeRequest:
+      type: object
+      required: [amount, payment_method_id]
+      properties:
+        amount:
+          $ref: "#/components/schemas/Money"
+        customer_id:
+          type: string
+          format: uuid
+        payment_method_id:
+          type: string
+          format: uuid
+        description:
+          type: string
+        capture_method:
+          type: string
+          enum: [automatic, manual]
+          default: automatic
+        statement_descriptor:
+          type: string
+          maxLength: 22
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+    CaptureChargeRequest:
+      type: object
+      properties:
+        amount:
+          $ref: "#/components/schemas/Money"
+    # --- Refunds ---
+    Refund:
+      type: object
+      required: [id, charge_id, amount, status, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        charge_id:
+          type: string
+          format: uuid
+        amount:
+          $ref: "#/components/schemas/Money"
+        status:
+          type: string
+          enum: [pending, succeeded, failed]
+        reason:
+          type: string
+          nullable: true
+          enum: [duplicate, fraudulent, requested_by_customer, null]
+        created_at:
+          type: string
+          format: date-time
+    CreateRefundRequest:
+      type: object
+      properties:
+        amount:
+          $ref: "#/components/schemas/Money"
+        reason:
+          type: string
+          enum: [duplicate, fraudulent, requested_by_customer]
+    # --- Customers ---
+    Customer:
+      type: object
+      required: [id, email, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        document:
+          type: string
+          nullable: true
+          description: CPF or CNPJ
+        address:
+          oneOf:
+            - $ref: "#/components/schemas/Address"
+            - type: "null"
+        default_payment_method_id:
+          type: string
+          nullable: true
+          format: uuid
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        created_at:
+          type: string
+          format: date-time
+    CustomerList:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Customer"
+        meta:
+          $ref: "#/components/schemas/PaginationMeta"
+    CreateCustomerRequest:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        phone:
+          type: string
+        document:
+          type: string
+        address:
+          $ref: "#/components/schemas/Address"
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+    UpdateCustomerRequest:
+      allOf:
+        - $ref: "#/components/schemas/CreateCustomerRequest"
+        - type: object
+          required: [email]
+    PatchCustomerRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        document:
+          type: string
+          nullable: true
+        address:
+          oneOf:
+            - $ref: "#/components/schemas/Address"
+            - type: "null"
+        default_payment_method_id:
+          type: string
+          nullable: true
+          format: uuid
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+    Address:
+      type: object
+      required: [street, city, state, postal_code, country]
+      properties:
+        street:
+          type: string
+        number:
+          type: string
+          nullable: true
+        complement:
+          type: string
+          nullable: true
+        neighborhood:
+          type: string
+          nullable: true
+        city:
+          type: string
+        state:
+          type: string
+        postal_code:
+          type: string
+        country:
+          type: string
+          minLength: 2
+          maxLength: 2
+    # --- Payment Methods ---
+    PaymentMethod:
+      type: object
+      required: [id, type, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [card, pix, boleto]
+        details:
+          anyOf:
+            - $ref: "#/components/schemas/CardDetails"
+            - $ref: "#/components/schemas/PixDetails"
+            - $ref: "#/components/schemas/BoletoDetails"
+        is_default:
+          type: boolean
+          default: false
+        created_at:
+          type: string
+          format: date-time
+    CardDetails:
+      type: object
+      required: [brand, last4, exp_month, exp_year]
+      properties:
+        brand:
+          type: string
+          enum: [visa, mastercard, amex, elo, hipercard]
+        last4:
+          type: string
+          minLength: 4
+          maxLength: 4
+        exp_month:
+          type: integer
+          minimum: 1
+          maximum: 12
+        exp_year:
+          type: integer
+        funding:
+          type: string
+          enum: [credit, debit, prepaid]
+        country:
+          type: string
+          nullable: true
+    PixDetails:
+      type: object
+      properties:
+        key_type:
+          type: string
+          enum: [cpf, cnpj, email, phone, random]
+        key:
+          type: string
+          nullable: true
+    BoletoDetails:
+      type: object
+      properties:
+        barcode:
+          type: string
+        due_date:
+          type: string
+          format: date
+        pdf_url:
+          type: string
+          format: uri
+    AttachPaymentMethodRequest:
+      type: object
+      required: [type]
+      properties:
+        type:
+          type: string
+          enum: [card, pix, boleto]
+        card:
+          type: object
+          properties:
+            token:
+              type: string
+            installments:
+              type: integer
+              minimum: 1
+              maximum: 12
+              default: 1
+        pix:
+          type: object
+          properties:
+            key_type:
+              type: string
+              enum: [cpf, cnpj, email, phone, random]
+            key:
+              type: string
+        is_default:
+          type: boolean
+          default: false
+    # --- Subscriptions ---
+    SubscriptionStatus:
+      type: string
+      enum: [active, past_due, cancelled, trialing, paused]
+    Subscription:
+      type: object
+      required: [id, customer_id, plan, status, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        customer_id:
+          type: string
+          format: uuid
+        plan:
+          $ref: "#/components/schemas/Plan"
+        status:
+          $ref: "#/components/schemas/SubscriptionStatus"
+        current_period_start:
+          type: string
+          format: date-time
+        current_period_end:
+          type: string
+          format: date-time
+        trial_end:
+          type: string
+          nullable: true
+          format: date-time
+        cancelled_at:
+          type: string
+          nullable: true
+          format: date-time
+        cancel_at_period_end:
+          type: boolean
+          default: false
+        payment_method_id:
+          type: string
+          nullable: true
+          format: uuid
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        created_at:
+          type: string
+          format: date-time
+    CreateSubscriptionRequest:
+      type: object
+      required: [plan_id]
+      properties:
+        plan_id:
+          type: string
+          format: uuid
+        payment_method_id:
+          type: string
+          format: uuid
+        trial_days:
+          type: integer
+          minimum: 0
+          maximum: 365
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+    CancelSubscriptionRequest:
+      type: object
+      properties:
+        at_period_end:
+          type: boolean
+          default: true
+        reason:
+          type: string
+          maxLength: 500
+    # --- Plans ---
+    BillingInterval:
+      type: string
+      enum: [daily, weekly, monthly, yearly]
+    Plan:
+      type: object
+      required: [id, name, amount, interval]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        amount:
+          $ref: "#/components/schemas/Money"
+        interval:
+          $ref: "#/components/schemas/BillingInterval"
+        interval_count:
+          type: integer
+          minimum: 1
+          default: 1
+        trial_days:
+          type: integer
+          minimum: 0
+          default: 0
+        active:
+          type: boolean
+          default: true
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+    CreatePlanRequest:
+      type: object
+      required: [name, amount, interval]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        amount:
+          $ref: "#/components/schemas/Money"
+        interval:
+          $ref: "#/components/schemas/BillingInterval"
+        interval_count:
+          type: integer
+          minimum: 1
+          default: 1
+        trial_days:
+          type: integer
+          minimum: 0
+        active:
+          type: boolean
+          default: true
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+    # --- Disputes ---
+    DisputeStatus:
+      type: string
+      enum: [open, under_review, won, lost]
+    DisputeReason:
+      type: string
+      enum: [fraudulent, duplicate, not_received, product_not_as_described, other]
+    Dispute:
+      type: object
+      required: [id, charge_id, amount, status, reason, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        charge_id:
+          type: string
+          format: uuid
+        amount:
+          $ref: "#/components/schemas/Money"
+        status:
+          $ref: "#/components/schemas/DisputeStatus"
+        reason:
+          $ref: "#/components/schemas/DisputeReason"
+        evidence:
+          oneOf:
+            - $ref: "#/components/schemas/DisputeEvidence"
+            - type: "null"
+        evidence_due_by:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        resolved_at:
+          type: string
+          nullable: true
+          format: date-time
+    DisputeEvidence:
+      type: object
+      properties:
+        description:
+          type: string
+          maxLength: 5000
+        receipt_url:
+          type: string
+          nullable: true
+          format: uri
+        shipping_tracking:
+          type: string
+          nullable: true
+        customer_communication:
+          type: string
+          nullable: true
+    # --- Webhooks ---
+    WebhookEndpoint:
+      type: object
+      required: [id, url, events]
+      properties:
+        id:
+          type: string
+          format: uuid
+        url:
+          type: string
+          format: uri
+        events:
+          type: array
+          items:
+            type: string
+            enum:
+              - charge.succeeded
+              - charge.failed
+              - charge.refunded
+              - charge.disputed
+              - customer.created
+              - customer.deleted
+              - subscription.created
+              - subscription.cancelled
+              - dispute.created
+              - dispute.resolved
+        secret:
+          type: string
+        active:
+          type: boolean
+          default: true
+    CreateWebhookRequest:
+      type: object
+      required: [url, events]
+      properties:
+        url:
+          type: string
+          format: uri
+        events:
+          type: array
+          minItems: 1
+          items:
+            type: string
+    # --- Errors ---
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+    ValidationErrorResponse:
+      type: object
+      required: [code, message, errors]
+      properties:
+        code:
+          type: string
+          enum: [validation_error]
+        message:
+          type: string
+        errors:
+          type: array
+          items:
+            $ref: "#/components/schemas/FieldError"
+    FieldError:
+      type: object
+      required: [field, message]
+      properties:
+        field:
+          type: string
+        message:
+          type: string
+        code:
+          type: string

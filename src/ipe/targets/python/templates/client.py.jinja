@@ -10,7 +10,11 @@ from {{ module_name }}.resources.{{ resource_path | replace("/", ".") }} import 
 
 
 class {{ api_name | class_name }}Client:
-    """Client for the {{ api_name }} API.
+    """{{ api_name }} API client.
+{% if spec_description %}
+
+    {{ spec_description | strip_html | wordwrap(72) }}
+{% endif %}
 
     Usage:
         client = {{ api_name | class_name }}Client(base_url="{{ base_url or 'https://api.example.com' }}")
