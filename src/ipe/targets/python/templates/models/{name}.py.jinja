@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+{% set extra_imports = model.properties | type_imports %}
+{% if extra_imports %}
+{{ extra_imports }}
+
+{% endif %}
 from pydantic import BaseModel
 
 
@@ -19,7 +24,7 @@ class {{ model.name | class_name }}(BaseModel):
 {% elif prop.required and prop.nullable %}
     {{ prop.name | field_name }}: {{ prop.schema_type | resolve_type(prop.schema_format) }} | None
 {% elif prop.default is not none %}
-    {{ prop.name | field_name }}: {{ prop.schema_type | resolve_type(prop.schema_format) }}{% if prop.nullable %} | None{% endif %} = {{ prop.default | tojson }}
+    {{ prop.name | field_name }}: {{ prop.schema_type | resolve_type(prop.schema_format) }}{% if prop.nullable %} | None{% endif %} = {{ prop.default | pyval }}
 {% else %}
     {{ prop.name | field_name }}: {{ prop.schema_type | resolve_type(prop.schema_format) }} | None = None
 {% endif %}

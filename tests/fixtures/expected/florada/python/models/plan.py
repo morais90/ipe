@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from typing import Any
+from uuid import UUID
+
 from pydantic import BaseModel
 
 
@@ -13,5 +16,5 @@ class Plan(BaseModel):
     interval: str
     interval_count: int = 1
     trial_days: int = 0
-    active: bool = true
+    active: bool = True
     metadata: dict[str, Any] | None = None

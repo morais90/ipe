@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
+from uuid import UUID
 
 import httpx
 
@@ -13,14 +14,18 @@ class CustomersPaymentMethodsResource:
 
     def list_payment_methods(
         self,
+        customer_id: UUID,
         type_: str | None = None,
     ) -> Any:
         """List payment methods for a customer
 
         Args:
+            customer_id: Unique customer identifier
             type_: Filter by payment method type
         """
-        url = "/customers/{customer_id}/payment-methods"
+        url = "/customers/{customer_id}/payment-methods".format(
+            customer_id=customer_id,
+        )
         response = self._client.request(
             "GET",
             url,
@@ -33,9 +38,16 @@ class CustomersPaymentMethodsResource:
 
     def attach_payment_method(
         self,
+        customer_id: UUID,
     ) -> Any:
-        """Attach a payment method to a customer"""
-        url = "/customers/{customer_id}/payment-methods"
+        """Attach a payment method to a customer
+
+        Args:
+            customer_id: Unique customer identifier
+        """
+        url = "/customers/{customer_id}/payment-methods".format(
+            customer_id=customer_id,
+        )
         response = self._client.request(
             "POST",
             url,
@@ -45,14 +57,17 @@ class CustomersPaymentMethodsResource:
 
     def detach_payment_method(
         self,
+        customer_id: UUID,
         method_id: UUID,
     ) -> Any:
         """Detach a payment method
 
         Args:
+            customer_id: Unique customer identifier
             method_id: method_id
         """
         url = "/customers/{customer_id}/payment-methods/{method_id}".format(
+            customer_id=customer_id,
             method_id=method_id,
         )
         response = self._client.request(

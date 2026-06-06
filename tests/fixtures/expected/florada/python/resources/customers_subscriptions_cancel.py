@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
+from uuid import UUID
 
 import httpx
 
@@ -13,6 +14,7 @@ class CustomersSubscriptionsCancelResource:
 
     def cancel_subscription(
         self,
+        customer_id: UUID,
         subscription_id: UUID,
     ) -> Any:
         """Cancel a subscription
@@ -21,9 +23,11 @@ class CustomersSubscriptionsCancelResource:
 period.
 
         Args:
+            customer_id: Unique customer identifier
             subscription_id: subscription_id
         """
         url = "/customers/{customer_id}/subscriptions/{subscription_id}/cancel".format(
+            customer_id=customer_id,
             subscription_id=subscription_id,
         )
         response = self._client.request(

@@ -11,10 +11,18 @@ _HTML_LINK = re.compile(r'<a[^>]*href=["\']([^"\']*)["\'][^>]*>([^<]*)</a>')
 _HTML_TAG = re.compile(r"<[^>]+>")
 _MD_LINK = re.compile(r"\[([^\]]+)\]\([^)]+\)")
 _BLANK_LINES = re.compile(r"\n\s*\n\s*\n")
+_IDENTIFIER = re.compile(r"\w+")
 
 _SINGULAR: dict[str, str] = {
     "models": "model",
     "resources": "resource",
+}
+
+_IMPORTABLE_TYPES: dict[str, tuple[str, str]] = {
+    "UUID": ("uuid", "UUID"),
+    "datetime": ("datetime", "datetime"),
+    "date": ("datetime", "date"),
+    "Any": ("typing", "Any"),
 }
 
 
@@ -62,12 +70,51 @@ class TemplateTreeRenderer:
         env.filters["module_name"] = naming.module_name
         env.filters["resolve_type"] = self._resolve_type_filter
         env.filters["strip_html"] = _strip_html
+        env.filters["pyval"] = _pyval
+        env.filters["type_imports"] = self._type_imports_filter
+        env.filters["param_type_imports"] = self._param_type_imports_filter
 
         self._env = env
         return env
 
     def _resolve_type_filter(self, schema_type: str, schema_format: str | None = None) -> str:
         return self._target.resolve_type(schema_type, schema_format)
+
+    def _type_imports_filter(self, properties: list[dict[str, Any]]) -> str:
+        pairs = [(p.get("schema_type", ""), p.get("schema_format")) for p in properties]
+        return self._compute_imports(pairs)
+
+    def _param_type_imports_filter(self, operations: list[dict[str, Any]]) -> str:
+        pairs = [
+            (p.get("schema_type", ""), p.get("schema_format"))
+            for op in operations
+            for p in op.get("parameters", [])
+        ]
+        return self._compute_imports(pairs, always={"Any"})
+
+    def _compute_imports(
+        self,
+        pairs: list[tuple[str, str | None]],
+        always: set[str] | None = None,
+    ) -> str:
+        tokens: set[str] = set(always or set())
+        for schema_type, schema_format in pairs:
+            resolved = self._target.resolve_type(schema_type, schema_format)
+            tokens.update(_IDENTIFIER.findall(resolved))
+
+        modules: dict[str, set[str]] = {}
+        for type_name, (module, name) in _IMPORTABLE_TYPES.items():
+            if type_name in tokens:
+                modules.setdefault(module, set()).add(name)
+
+        if not modules:
+            return ""
+
+        lines = [
+            f"from {module} import {', '.join(sorted(names))}"
+            for module, names in sorted(modules.items())
+        ]
+        return "\n".join(lines)
 
     def _process_template(
         self,
@@ -149,3 +196,7 @@ def _strip_html(text: str) -> str:
     text = _MD_LINK.sub(r"\1", text)
     text = _BLANK_LINES.sub("\n\n", text)
     return text.strip()
+
+
+def _pyval(value: Any) -> str:
+    return repr(value)

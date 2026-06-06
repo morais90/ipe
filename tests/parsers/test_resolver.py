@@ -126,3 +126,38 @@ class TestRefErrors:
         result = resolve_refs(spec)
 
         assert result["ref_user"] == {"type": "string"}
+
+
+class TestRefFilter:
+    def test_filter_skips_unmatched_refs(self):
+        spec: dict[str, Any] = {
+            "components": {
+                "schemas": {"S": {"type": "string"}},
+                "parameters": {"P": {"name": "p", "in": "query"}},
+            },
+            "schema_user": {"$ref": "#/components/schemas/S"},
+            "param_user": {"$ref": "#/components/parameters/P"},
+        }
+
+        result = resolve_refs(
+            spec,
+            ref_filter=lambda ref: ref.startswith("#/components/parameters/"),
+        )
+
+        assert result["schema_user"] == {"$ref": "#/components/schemas/S"}
+        assert result["param_user"] == {"name": "p", "in": "query"}
+
+    def test_chained_refs_fully_resolved(self):
+        spec: dict[str, Any] = {
+            "components": {
+                "parameters": {
+                    "A": {"$ref": "#/components/parameters/B"},
+                    "B": {"name": "real", "in": "query"},
+                },
+            },
+            "user": {"$ref": "#/components/parameters/A"},
+        }
+
+        result = resolve_refs(spec)
+
+        assert result["user"] == {"name": "real", "in": "query"}

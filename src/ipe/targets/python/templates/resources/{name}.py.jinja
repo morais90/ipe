@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+{{ operations | param_type_imports }}
 
 import httpx
 
@@ -22,7 +22,7 @@ class {{ item_name | class_name }}Resource:
         {{ param.name | field_name }}: {{ param.schema_type | resolve_type(param.schema_format) }},
 {% endfor %}
 {% for param in query_params %}
-        {{ param.name | field_name }}: {{ param.schema_type | resolve_type(param.schema_format) }} | None = {% if param.default is not none %}{{ param.default | tojson }}{% else %}None{% endif %},
+        {{ param.name | field_name }}: {{ param.schema_type | resolve_type(param.schema_format) }} | None = {% if param.default is not none %}{{ param.default | pyval }}{% else %}None{% endif %},
 {% endfor %}
     ) -> Any:
 {% if operation.summary and not has_details %}

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel
 
 
@@ -12,5 +14,5 @@ class CreatePlanRequest(BaseModel):
     interval: str
     interval_count: int = 1
     trial_days: int | None = None
-    active: bool = true
+    active: bool = True
     metadata: dict[str, Any] | None = None

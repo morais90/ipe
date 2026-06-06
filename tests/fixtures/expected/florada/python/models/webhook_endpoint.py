@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from uuid import UUID
+
 from pydantic import BaseModel
 
 
@@ -10,4 +12,4 @@ class WebhookEndpoint(BaseModel):
     url: str
     events: list
     secret: str | None = None
-    active: bool = true
+    active: bool = True

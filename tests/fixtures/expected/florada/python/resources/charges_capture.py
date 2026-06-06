@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
+from uuid import UUID
 
 import httpx
 
@@ -13,13 +14,19 @@ class ChargesCaptureResource:
 
     def capture_charge(
         self,
+        charge_id: UUID,
     ) -> Any:
         """Capture a charge
 
         Captures a previously authorized charge. Only applicable to card
 payments with capture_method=manual.
+
+        Args:
+            charge_id: Unique charge identifier
         """
-        url = "/charges/{charge_id}/capture"
+        url = "/charges/{charge_id}/capture".format(
+            charge_id=charge_id,
+        )
         response = self._client.request(
             "POST",
             url,

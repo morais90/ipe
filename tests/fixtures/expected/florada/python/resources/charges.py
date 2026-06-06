@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
+from uuid import UUID
 
 import httpx
 
@@ -67,14 +69,18 @@ card payments, or generates a payment voucher for boleto/pix.
 
     def get_charge(
         self,
+        charge_id: UUID,
         expand: list | None = None,
     ) -> Any:
         """Retrieve a charge
 
         Args:
+            charge_id: Unique charge identifier
             expand: Related resources to include in the response
         """
-        url = "/charges/{charge_id}"
+        url = "/charges/{charge_id}".format(
+            charge_id=charge_id,
+        )
         response = self._client.request(
             "GET",
             url,

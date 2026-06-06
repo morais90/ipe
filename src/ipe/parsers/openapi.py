@@ -6,12 +6,28 @@ from pydantic import ValidationError as PydanticValidationError
 
 from ipe.core.exceptions import UnsupportedFeatureError, ValidationError
 from ipe.parsers.models import OpenAPISpec, bind_schema_registry
+from ipe.parsers.resolver import resolve_refs
+
+_INLINEABLE_COMPONENTS = (
+    "parameters",
+    "responses",
+    "requestBodies",
+    "headers",
+    "examples",
+    "links",
+    "pathItems",
+)
+
+_INLINEABLE_REF_PREFIXES = tuple(
+    f"#/components/{section}/" for section in _INLINEABLE_COMPONENTS
+)
 
 
 def parse_openapi(spec_dict: dict[str, Any]) -> OpenAPISpec:
     _validate_version(spec_dict)
     working = copy.deepcopy(spec_dict)
     _normalize_30_to_31(working)
+    resolve_refs(working, ref_filter=_is_inlineable_ref)
 
     try:
         spec = OpenAPISpec.model_validate(working)
@@ -25,6 +41,10 @@ def parse_openapi(spec_dict: dict[str, Any]) -> OpenAPISpec:
         bind_schema_registry(spec.components.schemas)
 
     return spec
+
+
+def _is_inlineable_ref(ref: str) -> bool:
+    return ref.startswith(_INLINEABLE_REF_PREFIXES)
 
 
 def _validate_version(spec_dict: dict[str, Any]) -> None:

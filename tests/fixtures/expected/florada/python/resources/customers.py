@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
+from uuid import UUID
 
 import httpx
 
@@ -51,9 +52,16 @@ class CustomersResource:
 
     def get_customer(
         self,
+        customer_id: UUID,
     ) -> Any:
-        """Retrieve a customer"""
-        url = "/customers/{customer_id}"
+        """Retrieve a customer
+
+        Args:
+            customer_id: Unique customer identifier
+        """
+        url = "/customers/{customer_id}".format(
+            customer_id=customer_id,
+        )
         response = self._client.request(
             "GET",
             url,
@@ -63,12 +71,18 @@ class CustomersResource:
 
     def update_customer(
         self,
+        customer_id: UUID,
     ) -> Any:
         """Update a customer
 
         Replaces all customer fields.
+
+        Args:
+            customer_id: Unique customer identifier
         """
-        url = "/customers/{customer_id}"
+        url = "/customers/{customer_id}".format(
+            customer_id=customer_id,
+        )
         response = self._client.request(
             "PUT",
             url,
@@ -78,13 +92,19 @@ class CustomersResource:
 
     def delete_customer(
         self,
+        customer_id: UUID,
     ) -> Any:
         """Delete a customer
 
         Permanently deletes a customer and all associated data. Active
 subscriptions will be cancelled.
+
+        Args:
+            customer_id: Unique customer identifier
         """
-        url = "/customers/{customer_id}"
+        url = "/customers/{customer_id}".format(
+            customer_id=customer_id,
+        )
         response = self._client.request(
             "DELETE",
             url,
@@ -94,9 +114,16 @@ subscriptions will be cancelled.
 
     def patch_customer(
         self,
+        customer_id: UUID,
     ) -> Any:
-        """Partially update a customer"""
-        url = "/customers/{customer_id}"
+        """Partially update a customer
+
+        Args:
+            customer_id: Unique customer identifier
+        """
+        url = "/customers/{customer_id}".format(
+            customer_id=customer_id,
+        )
         response = self._client.request(
             "PATCH",
             url,

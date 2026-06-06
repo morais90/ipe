@@ -199,3 +199,64 @@ class TestInvalidSpec:
 
         with pytest.raises(ValidationError, match="Invalid OpenAPI"):
             parse_openapi(raw)
+
+
+class TestInlineComponentRefs:
+    def test_parameter_ref_inlined(self, florada_spec: dict[str, Any]):
+        spec = parse_openapi(florada_spec)
+
+        get_charge = spec.paths["/charges/{charge_id}"].get  # type: ignore[index, union-attr]
+        charge_id = get_charge.parameters[0]  # type: ignore[index, union-attr]
+
+        assert charge_id.model_dump(by_alias=True, exclude_unset=True) == {
+            "name": "charge_id",
+            "in": "path",
+            "required": True,
+            "description": "Unique charge identifier",
+            "schema": {"type": "string", "format": "uuid"},
+        }
+
+    def test_response_ref_inlined(self, florada_spec: dict[str, Any]):
+        spec = parse_openapi(florada_spec)
+
+        get_charge = spec.paths["/charges/{charge_id}"].get  # type: ignore[index, union-attr]
+        not_found = get_charge.responses["404"]  # type: ignore[index, union-attr]
+
+        assert not_found.model_dump(by_alias=True, exclude_unset=True) == {
+            "description": "Resource not found",
+            "content": {
+                "application/json": {
+                    "schema": {"$ref": "#/components/schemas/Error"},
+                },
+            },
+        }
+
+    def test_schema_ref_not_inlined(self, florada_spec: dict[str, Any]):
+        spec = parse_openapi(florada_spec)
+
+        charge = spec.components.schemas["Charge"]  # type: ignore[index, union-attr]
+        status = charge.properties["status"]  # type: ignore[index]
+
+        assert status.model_dump(by_alias=True, exclude_unset=True) == {
+            "$ref": "#/components/schemas/ChargeStatus",
+        }
+
+    def test_spec_without_components_unchanged(self):
+        raw: dict[str, Any] = {
+            "openapi": "3.0.3",
+            "info": {"title": "Test", "version": "1.0"},
+            "paths": {
+                "/items": {
+                    "get": {
+                        "responses": {"200": {"description": "OK"}},
+                    },
+                },
+            },
+        }
+
+        spec = parse_openapi(raw)
+        items_get = spec.paths["/items"].get  # type: ignore[index, union-attr]
+
+        assert items_get.model_dump(by_alias=True, exclude_unset=True) == {
+            "responses": {"200": {"description": "OK"}},
+        }

@@ -6,5 +6,5 @@ from pydantic import BaseModel
 
 
 class CancelSubscriptionRequest(BaseModel):
-    at_period_end: bool = true
+    at_period_end: bool = True
     reason: str | None = None

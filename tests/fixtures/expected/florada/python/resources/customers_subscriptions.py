@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
+from uuid import UUID
 
 import httpx
 
@@ -13,14 +14,18 @@ class CustomersSubscriptionsResource:
 
     def list_subscriptions(
         self,
+        customer_id: UUID,
         status: str | None = None,
     ) -> Any:
         """List subscriptions for a customer
 
         Args:
+            customer_id: Unique customer identifier
             status: status
         """
-        url = "/customers/{customer_id}/subscriptions"
+        url = "/customers/{customer_id}/subscriptions".format(
+            customer_id=customer_id,
+        )
         response = self._client.request(
             "GET",
             url,
@@ -33,12 +38,18 @@ class CustomersSubscriptionsResource:
 
     def create_subscription(
         self,
+        customer_id: UUID,
     ) -> Any:
         """Create a subscription
 
         Subscribes a customer to a plan. First invoice is created immediately.
+
+        Args:
+            customer_id: Unique customer identifier
         """
-        url = "/customers/{customer_id}/subscriptions"
+        url = "/customers/{customer_id}/subscriptions".format(
+            customer_id=customer_id,
+        )
         response = self._client.request(
             "POST",
             url,
