@@ -2,242 +2,194 @@
 
 ## Overview
 
-This spec defines **what** Ipê generates and **why** -- the qualities, structure, and conventions of the generated code. For **how** the generation pipeline works (SpecAnalyzer, LanguageTarget, TemplateRenderer), see [02-architecture.md](02-architecture.md).
+This spec defines **what** Ipê generates and **why** — the qualities, structure, and conventions of the generated code. For **how** the pipeline works (SpecAnalyzer, LanguageTarget, TemplateTreeRenderer), see [02-architecture.md](02-architecture.md).
 
-Data models used in the generation process (APIBlueprint, StandardOperation, StandardModel, OutputFile, etc.) are defined in [02-architecture.md](02-architecture.md#canonical-data-models).
+Data models used in generation (APIBlueprint, StandardOperation, StandardModel, etc.) are defined in [02-architecture.md](02-architecture.md#canonical-data-models).
 
-## Requirements for Generated Code
+## Quality Principles
 
 ### 1. Resource-Based Client Organization
-API operations are logically grouped by resource, creating intuitive client interfaces that mirror the API's structure and common usage patterns.
+API operations are grouped into resources that mirror the API's path structure, creating intuitive client interfaces.
 
 ### 2. Strong Type Safety
-Generated code includes comprehensive type information, client-side validation, and schema-aware request/response handling to catch errors early.
+Generated code carries comprehensive type annotations so static analysis catches errors before runtime.
 
-### 3. Comprehensive Error Handling
-HTTP errors are mapped to language-appropriate exception hierarchies with clear, actionable error messages and proper error context.
+### 3. Idiomatic Code
+Output follows the conventions, patterns, and best practices of the target language. It should read as if written by an experienced developer.
 
-### 4. Idiomatic Code
-Generated code follows the conventions, patterns, and best practices of the target language, appearing as if written by an experienced developer.
+### 4. Forward Compatibility
+Generated clients handle unknown fields gracefully and tolerate evolving APIs without breaking.
 
-### 5. Schema Validation
-All request and response data is validated against the OpenAPI schema, ensuring API contract compliance and providing immediate feedback for data inconsistencies.
+### 5. Lint-Clean by Default
+Output passes the target language's standard linter without configuration (Python: `ruff` clean).
 
-### 6. Forward Compatibility
-Generated clients handle unknown fields gracefully and work with evolving APIs without breaking existing code.
+## Developer Experience
 
-## Developer Experience Goals
+The generated client provides an intuitive, discoverable surface that feels natural in the target language.
 
-The generated clients should provide an intuitive, discoverable API that feels natural in the target language.
-
-**Python Example:**
 ```python
-from petstore.client import PetStoreClient
+from florada_payments.client import FloradaPaymentsClient
 
-client = PetStoreClient(api_key="your-key")
+client = FloradaPaymentsClient(api_key="your-key")
 
-# Resource-based organization
-users = client.users.list(status="active", limit=50)
-user = client.users.get(user_id="123")
-new_user = client.users.create(name="John", email="john@example.com")
+# Resource-based access
+charges = client.charges.list_charges(status="succeeded", limit=50)
+charge = client.charges.get_charge(charge_id="ch_123")
 
-# Comprehensive error handling
-try:
-    user = client.users.get("invalid-id")
-except PetStoreClient.NotFoundError:
-    print("User not found")
-except PetStoreClient.ValidationError as e:
-    print(f"Invalid data: {e.detail}")
+# Nested resources are flattened with underscores
+subscriptions = client.customers_subscriptions.list_subscriptions(
+    customer_id="cu_456"
+)
 ```
 
-**TypeScript (future target):**
-```typescript
-import { PetStoreClient } from './petstore-client';
-
-const client = new PetStoreClient({ apiKey: 'your-key' });
-
-const users: User[] = await client.users.list({ status: 'active', limit: 50 });
-const user: User = await client.users.get({ userId: '123' });
-
-try {
-    const user = await client.users.get({ userId: 'invalid-id' });
-} catch (error) {
-    if (error instanceof PetStoreClient.NotFoundError) {
-        console.log('User not found');
-    }
-}
-```
-
-## Generated Output Structure
+## v0.1 Generated Structure (Python)
 
 ```
-petstore/
-├── __init__.py              # Public API: re-exports client and models
-├── client.py                # Main client with resource accessors
-├── exceptions.py            # Exception hierarchy
-├── auth.py                  # Authentication handlers
+florada_payments/
+├── __init__.py                # Re-exports the client class
+├── client.py                  # Main client with resource accessors
+├── exceptions.py              # Exception hierarchy
 ├── models/
-│   ├── __init__.py          # Re-exports all model classes
-│   ├── user.py              # User, CreateUserRequest, UpdateUserRequest
-│   └── pet.py               # Pet, PetStatus
+│   ├── __init__.py            # Lazy imports via __getattr__
+│   ├── charge.py              # One file per schema
+│   ├── create_charge_request.py
+│   ├── customer.py
+│   └── ...
 └── resources/
-    ├── __init__.py           # Re-exports all resource managers
-    ├── users.py              # UsersResource with list, get, create, update, delete
-    └── pets.py               # PetsResource with list, get, create
+    ├── __init__.py            # Sorted resource imports
+    ├── charges.py             # One file per resource
+    ├── customers.py
+    └── ...
 ```
 
-Each schema in the OpenAPI spec becomes its own file under `models/`. Each logical group of endpoints becomes its own file under `resources/`. This keeps generated code navigable and diff-friendly.
+**One schema → one file.** Each model lives in its own module under `models/`. Lazy imports in `models/__init__.py` keep imports cheap.
 
-## Grouping Rules
+**One resource → one file.** Resources are grouped by nested path (see below), one file each under `resources/`.
 
-### Operations → Resources
+## Resource Grouping
 
-Operations are grouped by their primary tag. When tags are absent, the first non-parameterized path segment is used. Each group produces a single resource file in `resources/`.
+Operations are grouped using **`by_nested_path`** (from `utils/grouping.py`). The bucket key is the dotted concatenation of non-parameter path segments; the resource file is the bucket key with dots replaced by underscores.
 
-| Path | Tag | Resource | File |
-|------|-----|----------|------|
-| `GET /users` | `users` | `users` | `resources/users.py` |
-| `GET /users/{id}` | `users` | `users` | `resources/users.py` |
-| `POST /pets` | _(none)_ | `pets` (from path) | `resources/pets.py` |
+| Path | Bucket key | File |
+|---|---|---|
+| `GET /charges` | `charges` | `resources/charges.py` |
+| `GET /charges/{id}` | `charges` | `resources/charges.py` |
+| `POST /charges/{id}/capture` | `charges.capture` | `resources/charges_capture.py` |
+| `GET /customers/{id}/subscriptions` | `customers.subscriptions` | `resources/customers_subscriptions.py` |
 
-### Schemas → Model Files
+This produces fine-grained resources that map directly onto the URL hierarchy. Each resource class on the client (`client.customers_subscriptions`) corresponds to exactly one bucket.
 
-Related models are grouped by the resource they belong to. Request/response variants (e.g., `User`, `CreateUserRequest`, `UpdateUserRequest`) live together. Schemas not tied to a specific resource go into `common.py`.
+OpenAPI tags are not currently used for grouping; the `by_tag` strategy exists in `utils/grouping.py` but is not the default. Targets can pick a different strategy without changing the renderer.
 
-### Method Naming
+## Method Naming
 
-Standard CRUD patterns are detected from the HTTP method:
+Method names come from the operation's `operationId` run through the target's `NamingConvention.method_name`. For Python that's `snake_case` with a trailing underscore on Python keywords.
 
-| HTTP Method | Path Pattern | Generated Method |
-|-------------|-------------|-----------------|
-| `GET` | `/resources` | `list()` |
-| `GET` | `/resources/{id}` | `get()` |
-| `POST` | `/resources` | `create()` |
-| `PUT` / `PATCH` | `/resources/{id}` | `update()` |
-| `DELETE` | `/resources/{id}` | `delete()` |
+| operationId | Generated method |
+|---|---|
+| `listCharges` | `list_charges` |
+| `getCharge` | `get_charge` |
+| `createCharge` | `create_charge` |
+| `captureCharge` | `capture_charge` |
 
-For non-standard operations, the `operationId` is used via the target's `NamingConvention`.
+Ipê does not currently infer CRUD verbs from HTTP method + path shape — it trusts the `operationId`. Specs without `operationId`s get a synthesized fallback (`{method}_{path_segments}`).
 
 ## Generated Exception Hierarchy
 
-Error classes are generated based on the HTTP status codes found across all operations in the spec. Only status codes actually present in the spec produce error classes.
+A fixed hierarchy is generated regardless of the spec. All exceptions inherit from `{ApiName}Error`, which carries `message`, `status_code`, and `response`.
 
 ```python
-# Generated exceptions.py
-class PetStoreError(Exception):
-    def __init__(self, message: str, status_code: int, detail: Any = None) -> None:
-        super().__init__(message)
-        self.status_code = status_code
-        self.detail = detail
+class FloradaPaymentsError(Exception):
+    def __init__(self, message, status_code=None, response=None): ...
 
-
-class NotFoundError(PetStoreError):
-    """Raised when the requested resource does not exist (404)."""
-
-
-class ValidationError(PetStoreError):
-    """Raised when the request data fails validation (422)."""
+class BadRequestError(FloradaPaymentsError): pass
+class UnauthorizedError(FloradaPaymentsError): pass
+class ForbiddenError(FloradaPaymentsError): pass
+class NotFoundError(FloradaPaymentsError): pass
+class ConflictError(FloradaPaymentsError): pass
+class ValidationError(FloradaPaymentsError): pass
+class RateLimitError(FloradaPaymentsError): pass
+class InternalServerError(FloradaPaymentsError): pass
 ```
 
-The full status code → error class mapping is defined in the target implementation. See [02-architecture.md](02-architecture.md#target-implementation-example-python) for the Python target's error mappings.
+The generated `client.py` uses `response.raise_for_status()` from httpx; the exception classes exist for downstream code to catch, but Ipê does not yet wire status codes to these classes automatically. Spec-driven mapping (only generating classes for status codes actually present in the spec, and dispatching to them on failed responses) is on the roadmap.
 
-## Generated Authentication
+## Authentication
 
-Support for essential authentication schemes, generated based on the `securitySchemes` in the OpenAPI spec.
+v0.1 supports **bearer-token auth inline in the client constructor**. The generated `client.py` accepts an `api_key` kwarg and sets `Authorization: Bearer <key>` on the underlying httpx client.
 
-**Supported in v0.1:** API key, Bearer token, Basic auth.
+A dedicated `auth.py` module with pluggable handlers for API key, Basic, and OAuth2 flows is on the roadmap.
 
-```python
-# Generated auth.py
-class AuthHandler:
-    def __init__(
-        self,
-        *,
-        api_key: str | None = None,
-        bearer_token: str | None = None,
-        username: str | None = None,
-        password: str | None = None,
-    ) -> None:
-        self.api_key = api_key
-        self.bearer_token = bearer_token
-        self.username = username
-        self.password = password
+## Models
 
-    def apply(self, headers: dict[str, str]) -> dict[str, str]:
-        if self.bearer_token:
-            headers["Authorization"] = f"Bearer {self.bearer_token}"
-        elif self.api_key:
-            headers["X-API-Key"] = self.api_key
-        elif self.username and self.password:
-            import base64
-            credentials = base64.b64encode(
-                f"{self.username}:{self.password}".encode()
-            ).decode()
-            headers["Authorization"] = f"Basic {credentials}"
-        return headers
-```
+Each schema in `components/schemas` becomes a Pydantic `BaseModel` in its own file under `models/`. Field rendering rules:
 
-## Generated File Upload Handling
+- **Required + non-nullable**: `name: type`
+- **Required + nullable**: `name: type | None`
+- **Optional with default**: `name: type = <default>` (or `name: type | None = <default>` if nullable)
+- **Optional without default**: `name: type | None = None`
 
-Operations that accept `multipart/form-data` produce methods with file parameters:
+Defaults render via the `pyval` Jinja filter (Python `repr`), so booleans, `None`, and strings round-trip correctly. Imports for `UUID`, `datetime`, `date`, and `Any` are computed automatically by the `type_imports` filter based on the resolved property types.
 
-```python
-# Generated resource method with file upload
-def upload_avatar(
-    self,
-    user_id: str,
-    file: BinaryIO,
-    *,
-    filename: str | None = None,
-) -> User:
-    files = {"file": (filename or "upload", file)}
-    response = self._client.request(
-        "POST",
-        f"/users/{user_id}/avatar",
-        files=files,
-    )
-    return User.model_validate(response.json())
-```
+Schemas with `type: array` are skipped — they're treated as type aliases, not standalone models.
 
-## Template Directory Structure
+## Resource Files
 
-Each target has a self-contained template directory with Jinja2 files:
+Each resource file declares a `{Name}Resource` class that holds a reference to the shared `httpx.Client`. Operation methods:
+
+- Take typed parameters (path params first, then query params with defaults).
+- Build the URL via `.format(...)` for path params.
+- Issue the request with `self._client.request(method, url, params=...)`.
+- Call `response.raise_for_status()` and return `response.json()`.
+
+Return types are currently `Any`. Typed responses tied to schema models are on the roadmap.
+
+Operation docstrings carry the OpenAPI `summary`, `description`, and parameter descriptions, stripped of HTML/Markdown via the `strip_html` filter.
+
+## Template Directory
+
+Each target's templates are self-contained. The Python target's tree:
 
 ```
 targets/python/templates/
-├── __init__.py.jinja            # Package root
-├── client.py.jinja              # Main client class
-├── auth.py.jinja                # Authentication handlers
-├── exceptions.py.jinja          # Exception hierarchy
+├── __init__.py.jinja
+├── client.py.jinja
+├── exceptions.py.jinja
 ├── models/
-│   ├── __init__.py.jinja        # Model re-exports
-│   └── model.py.jinja           # Rendered once per model group
+│   ├── __init__.py.jinja
+│   └── {name}.py.jinja        # Rendered once per model
 └── resources/
-    ├── __init__.py.jinja        # Resource re-exports
-    └── resource.py.jinja        # Rendered once per resource
+    ├── __init__.py.jinja
+    └── {name}.py.jinja        # Rendered once per resource
 ```
 
-The target's `plan()` method determines which templates are rendered and where the output goes. See [02-architecture.md](02-architecture.md#target-implementation-example-python) for how the Python target assembles its render plan.
+The `{name}.py.jinja` convention tells the renderer to repeat the template once per item in the matching context collection. See [02-architecture.md](02-architecture.md#4-templatetreerenderer-corerendererpy) for the convention's semantics.
 
 ## Quality Standards
 
-### Code Generation Checklist
+### Checklist
 
-- Every public class and method has a docstring
-- Every function parameter and return value is type-annotated
-- All model fields declare default values or are marked required
-- Re-export `__init__.py` files provide clean public API surfaces
-- Exception classes carry `status_code` and `detail` for debugging
-- Generated code passes the target language's standard linter without configuration
+- Every generated module compiles as valid Python.
+- Every function parameter and return value is type-annotated.
+- Model fields declare defaults or are marked required.
+- Re-export `__init__.py` files provide a clean public surface (lazy for models).
+- Exception classes carry `status_code` and `response` for debugging.
+- Output passes `ruff` without configuration.
 
-### Python-Specific Standards
+### Verified by Tests
 
-1. **Type Safety**: Comprehensive type annotations (modern `list[str]` syntax)
-2. **Validation**: Request and response data validated via Pydantic models
-3. **Performance**: Connection pooling via httpx
-4. **Conventions**: PEP 8 compliant, ruff-clean output
+Golden-file tests at the CLI boundary compare the full generated tree against `tests/fixtures/expected/florada/python/`. Any drift in generated output fails CI.
 
-### MVP Scope
+## Roadmap
 
-- **Python**: Full support (MVP target)
-- **TypeScript**: Planned as the second language target (see [99-future-features.md](99-future-features.md))
+Beyond v0.1, in rough priority order:
+
+| Feature | Notes |
+|---|---|
+| Typed responses | Map response bodies to schema models, return `Pet` instead of `Any`. |
+| Async client | `AsyncClient` variant generated alongside the sync one. |
+| Status-code-driven exceptions | Only generate classes for codes in the spec; dispatch via response status. |
+| Full `auth.py` module | API key, Basic, OAuth2 handlers as composable classes. |
+| File upload methods | Detect `multipart/form-data` operations, expose `BinaryIO` parameters. |
+| Tag-based grouping option | Make the grouping strategy configurable per target. |
+| TypeScript target | Validate the target Protocol against a second language. |
