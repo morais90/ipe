@@ -2,300 +2,146 @@
 
 ## Overview
 
-Ipê follows a **pipeline architecture** where the core engine handles OpenAPI parsing, validation, and generation orchestration, while language support is implemented through **pluggable targets**. The renderer uses **Jinja2** for template rendering and **pathlib** for file writing -- no external scaffolding tools required.
+Ipê follows a **pipeline architecture**: parse OpenAPI → extract a language-agnostic blueprint → render templates. Language support is pluggable via the `LanguageTarget` protocol. Jinja2 handles rendering; `pathlib` handles I/O. No external scaffolding tools.
 
-**MVP target (v0.1): Python only.** TypeScript and Go are planned for future releases but the architecture supports them from day one.
+**v0.1 ships Python only.** The architecture supports additional targets without core changes.
 
-## Architecture Diagram
+## Pipeline
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    SPEC ANALYZER                             │
-│  Knows: OpenAPI. Knows nothing about languages.             │
-├─────────────────────────────────────────────────────────────┤
-│  * OpenAPI Parsing & Validation                             │
-│  * $ref Resolution & Normalization                          │
-│  * Data Extraction → APIBlueprint                           │
-└──────────────────────────┬──────────────────────────────────┘
+┌───────────────────────────────────────────────────────────┐
+│                    SPEC ANALYZER                          │
+│  Knows OpenAPI. Knows nothing about languages.            │
+├───────────────────────────────────────────────────────────┤
+│  Parse + validate + resolve $refs (eager for non-schema,  │
+│  lazy for schema) → APIBlueprint                          │
+└──────────────────────────┬────────────────────────────────┘
                            │ APIBlueprint
               ┌────────────▼────────────┐
-              │    LANGUAGE TARGET      │
-              │    (Protocol)           │
-              │  Knows: its language.   │
+              │     LANGUAGE TARGET     │
+              │  Knows its language.    │
               │  Knows nothing about    │
               │  OpenAPI or I/O.        │
+              ├─────────────────────────┤
+              │ Type resolution,        │
+              │ naming, resource        │
+              │ grouping, template dir  │
               └────────────┬────────────┘
-                           │ list[OutputFile]
+                           │ context + naming + types (via filters)
               ┌────────────▼────────────┐
-              │   TEMPLATE RENDERER     │
-              │  Knows: Jinja2 + fs.    │
+              │ TEMPLATE TREE RENDERER  │
+              │  Knows Jinja2 + fs.     │
               │  Knows nothing about    │
               │  OpenAPI or languages.  │
+              ├─────────────────────────┤
+              │ Scan template tree,     │
+              │ render each .jinja,     │
+              │ write to output dir     │
               └─────────────────────────┘
 ```
 
 Orchestrated by:
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    CODE GENERATOR                            │
-│  The pipeline coordinator. Knows nothing about specifics.   │
-│  Connects: SpecAnalyzer → LanguageTarget → TemplateRenderer │
-└─────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────┐
+│                    CODE GENERATOR                         │
+│  The pipeline coordinator. Builds the context dict from   │
+│  the blueprint, groups operations via the target, hands   │
+│  off to the renderer.                                     │
+└───────────────────────────────────────────────────────────┘
 ```
 
-## Generation Pipeline
+## Generation Flow
 
 ```
 CLI → CodeGenerator.run(config)
-  → SpecAnalyzer.parse(spec_path)            → ParsedSpec (OpenAPI Pydantic models)
-  → SpecAnalyzer.extract(spec, config)       → APIBlueprint (language-agnostic)
-  → LanguageTarget.transform(blueprint)      → dict[str, Any] (language-specific)
-  → LanguageTarget.plan(data)                → list[OutputFile] (render instructions)
-  → TemplateRenderer.render(plan, out_dir)   → list[Path] (written files)
+  → SpecAnalyzer.parse(spec_path)        → OpenAPISpec (Pydantic)
+  → SpecAnalyzer.extract(spec, config)   → APIBlueprint
+  → LanguageTarget.group(operations)     → dict[resource, list[op]]
+  → TemplateTreeRenderer.render(...)     → list[Path] written
 ```
+
+There is no separate `transform` or `plan` step. Type resolution and naming live as **Jinja filters** invoked from templates; the **template tree itself is the render plan**.
 
 ## Core Components
 
-### 1. SpecAnalyzer (`src/ipe/core/analyzer.py`)
+### 1. SpecAnalyzer (`core/analyzer.py`)
 **Knows OpenAPI. Knows nothing about languages.**
 
-Parses, validates, resolves $refs, and extracts a language-agnostic `APIBlueprint`.
+Two responsibilities:
 
-```python
-class SpecAnalyzer:
+- `parse(spec_path)` — fetch from file or URL, normalize OpenAPI 3.0 → 3.1 quirks (`nullable`, exclusive bounds, `example`), inline non-schema `$ref`s eagerly, validate via Pydantic, bind the schema registry for lazy resolution.
+- `extract(spec, config)` — translate the parsed Pydantic OpenAPI models into the language-agnostic `APIBlueprint` (operations, models, auth schemes, metadata).
 
-    def parse(self, spec_path: str) -> ParsedSpec:
-        """Parse and validate an OpenAPI specification.
+Type mapping is **not** an analyzer responsibility — each target owns the conversion from OpenAPI types to language-native types.
 
-        Loads from local files or URLs, resolves $ref pointers,
-        validates OpenAPI 3.0.x / 3.1.x compliance.
-        """
-        ...
-
-    def extract(self, spec: ParsedSpec, config: IpeConfig) -> APIBlueprint:
-        """Extract a language-agnostic API blueprint.
-
-        Converts parsed OpenAPI models into StandardOperation,
-        StandardModel, and AuthScheme instances grouped by resource.
-        """
-        ...
-```
-
-The analyzer handles all OpenAPI complexity and provides a clean `APIBlueprint` to language targets. **Type mapping is NOT an analyzer responsibility** -- each target owns the conversion from OpenAPI types to language-native types.
-
-### 2. LanguageTarget (`src/ipe/targets/base.py`)
+### 2. LanguageTarget (`targets/base.py`)
 **Knows its language. Knows nothing about OpenAPI or I/O.**
 
-Protocol-based contract. Any class that satisfies the protocol is a valid target -- no inheritance required.
+A `Protocol` — any class that satisfies it is a valid target. No inheritance required.
 
-```python
-from typing import Any, Protocol
+| Member | Returns | Purpose |
+|---|---|---|
+| `name` | `str` | Unique identifier (e.g. `"python"`) |
+| `naming` | `NamingConvention` | Language-specific casing |
+| `resolve_type(type, format)` | `str` | OpenAPI type → language-native type |
+| `group(operations)` | `dict[str, list[Operation]]` | Bucket operations into resources |
+| `template_dir` | `Path` | Where this target's `.jinja` files live |
+| `get_default_config()` | `dict` | Sensible defaults for the target |
 
-from pathlib import Path
+These six members fully define how a language renders an OpenAPI spec. There is no `transform()` or `plan()` — type resolution happens at render time via Jinja filters; the plan is the template tree on disk.
 
+### 3. TargetRegistry (`targets/registry.py`)
 
-class NamingConvention(Protocol):
-    """Contract for language-specific naming rules."""
+Explicit registration of language targets. Built-in targets are imported and registered in `_register_builtins`; third-party targets call `register()`. No filesystem scanning or entry-points discovery in v0.1.
 
-    def class_name(self, raw: str) -> str: ...
-    def method_name(self, raw: str) -> str: ...
-    def field_name(self, raw: str) -> str: ...
-    def module_name(self, raw: str) -> str: ...
-
-
-class LanguageTarget(Protocol):
-    """Contract for language-specific code generation.
-
-    Each implementation is responsible for:
-    - Transforming the APIBlueprint into language-specific template data
-    - Mapping OpenAPI types to language-native types
-    - Planning which files to generate and with what data
-    """
-
-    @property
-    def name(self) -> str:
-        """Unique identifier (e.g., 'python', 'typescript')."""
-        ...
-
-    @property
-    def naming(self) -> NamingConvention:
-        """Naming convention for this language."""
-        ...
-
-    def transform(self, blueprint: APIBlueprint) -> dict[str, Any]:
-        """Transform API blueprint into language-specific template data.
-
-        This is where type mapping happens. The target converts
-        OpenAPI types (string, integer, array, etc.) into language-native
-        types (str, int, list[T], etc.).
-        """
-        ...
-
-    def plan(self, data: dict[str, Any]) -> list[OutputFile]:
-        """Plan which files to generate.
-
-        Returns a list of OutputFile instructions. Each instruction
-        specifies which template to render, where to write it,
-        and what data to pass. The target decides everything about
-        the output structure -- the renderer just executes.
-        """
-        ...
-
-    def get_template_dir(self) -> Path:
-        """Return the directory containing .jinja template files."""
-        ...
-
-    def validate_config(self, config: dict[str, Any]) -> bool:
-        """Validate language-specific configuration."""
-        ...
-
-    def get_default_config(self) -> dict[str, Any]:
-        """Provide default configuration for this language."""
-        ...
-```
-
-### 3. TargetRegistry (`src/ipe/targets/registry.py`)
-**Explicit registration of language targets**
-
-```python
-class TargetRegistry:
-
-    def __init__(self) -> None:
-        self._targets: dict[str, LanguageTarget] = {}
-        self._register_builtins()
-
-    def _register_builtins(self) -> None:
-        from ipe.targets.python.target import PythonTarget
-
-        self.register(PythonTarget())
-
-    def register(self, target: LanguageTarget) -> None:
-        """Register a language target."""
-        self._targets[target.name] = target
-
-    def get(self, language: str) -> LanguageTarget:
-        """Retrieve target for specified language."""
-        if language not in self._targets:
-            raise UnsupportedLanguageError(
-                language, available=list(self._targets)
-            )
-        return self._targets[language]
-
-    def list_languages(self) -> list[str]:
-        """Get list of all registered languages."""
-        return list(self._targets.keys())
-```
-
-No filesystem scanning or dynamic discovery. Built-in targets are imported explicitly; third-party targets call `register()`.
-
-### 4. TemplateRenderer (`src/ipe/core/renderer.py`)
+### 4. TemplateTreeRenderer (`core/renderer.py`)
 **Knows Jinja2 + filesystem. Knows nothing about OpenAPI or languages.**
 
-Executes a list of `OutputFile` instructions. Does not decide what to render or where -- that's the target's job.
+The template tree on disk **is** the plan. The renderer walks the target's `template_dir`, renders each `.jinja` file, and writes to output. Three behaviors:
 
-```python
-from pathlib import Path
+- **Single template** (e.g. `client.py.jinja`) — rendered once with the full context.
+- **Repeated template** (`{name}.py.jinja` inside a directory like `models/`) — rendered once per item in the matching context collection. The parent directory name (`models`) maps to the context key.
+- **Custom override** — `ChoiceLoader` lets users place a custom template that wins over the built-in.
 
-from jinja2 import ChoiceLoader, Environment, FileSystemLoader
+Filters registered on the Jinja environment expose language semantics to templates:
 
+| Filter | Purpose |
+|---|---|
+| `class_name`, `method_name`, `field_name`, `module_name` | Target's `NamingConvention` |
+| `resolve_type(type, format)` | Target's type resolver |
+| `strip_html` | Clean HTML/Markdown from OpenAPI descriptions |
+| `pyval` | Render Python literal (`True`/`False`/`None`) |
+| `type_imports`, `param_type_imports` | Compute Python imports for used types |
 
-class TemplateRenderer:
+Filters carry **all** language-specific knowledge into templates. Templates stay declarative; targets stay free of I/O.
 
-    def __init__(
-        self, template_dir: Path, custom_dir: Path | None = None
-    ) -> None:
-        loaders: list[FileSystemLoader] = []
-        if custom_dir is not None:
-            loaders.append(FileSystemLoader(str(custom_dir)))
-        loaders.append(FileSystemLoader(str(template_dir)))
+### 5. CodeGenerator (`core/generator.py`)
+**The pipeline coordinator.**
 
-        self._env = Environment(
-            loader=ChoiceLoader(loaders),
-            keep_trailing_newline=True,
-            trim_blocks=True,
-            lstrip_blocks=True,
-        )
+Connects analyzer, target, and renderer. Builds the context dict from `blueprint.model_dump()`, groups operations into resources via the target, and dispatches to the renderer. ~35 lines. Knows nothing about the specifics of any one stage.
 
-    def render(
-        self,
-        plan: list[OutputFile],
-        output_dir: Path,
-    ) -> list[Path]:
-        """Execute a render plan. Returns list of written file paths."""
-        written: list[Path] = []
+## $ref Resolution Strategy
 
-        for output_file in plan:
-            target_path = output_dir / output_file.output_path
-            target_path.parent.mkdir(parents=True, exist_ok=True)
+OpenAPI allows `$ref` in many positions (parameters, responses, requestBodies, headers, examples, links, pathItems, schemas). Ipê treats schemas differently from the others:
 
-            template = self._env.get_template(output_file.template)
-            content = template.render(output_file.context)
-            target_path.write_text(content, encoding="utf-8")
-            written.append(target_path)
+- **Non-schema `$ref`s**: resolved **eagerly** in `parse_openapi`, before Pydantic validation. The walker (`resolver.resolve_refs`) inlines targets in-place with id-based cycle protection and chained-ref recursion.
+- **Schema `$ref`s**: resolved **lazily** at attribute access via `Schema.__getattribute__`. A `ContextVar`-scoped registry holds the bound schemas; reading any non-`ref` field on a Schema whose `ref` is set transparently delegates to the resolved Schema.
 
-        return written
-
-    def dry_run(self, plan: list[OutputFile], output_dir: Path) -> list[Path]:
-        """Preview which files would be written without writing them."""
-        return [output_dir / f.output_path for f in plan]
-```
-
-### 5. CodeGenerator (`src/ipe/core/generator.py`)
-**The pipeline coordinator. Knows nothing about specifics.**
-
-Connects SpecAnalyzer, LanguageTarget, and TemplateRenderer in sequence.
-
-```python
-class CodeGenerator:
-
-    def __init__(self) -> None:
-        self.analyzer = SpecAnalyzer()
-        self.registry = TargetRegistry()
-
-    def run(self, config: IpeConfig) -> GenerationResult:
-        """Execute the full generation pipeline."""
-        # 1. Analyze OpenAPI spec → language-agnostic blueprint
-        spec = self.analyzer.parse(config.spec_path)
-        blueprint = self.analyzer.extract(spec, config)
-
-        # 2. Transform blueprint → language-specific data + render plan
-        target = self.registry.get(config.target)
-        data = target.transform(blueprint)
-        plan = target.plan(data)
-
-        # 3. Render templates → files on disk
-        renderer = TemplateRenderer(
-            template_dir=target.get_template_dir(),
-            custom_dir=config.template_dir,
-        )
-        written_files = renderer.render(plan, config.output_dir)
-
-        return GenerationResult(files=written_files, target=target.name)
-```
+The reason for the split: schemas can be recursive (e.g. `Node → Node`), and eager resolution would loop or blow the stack on real-world specs. Non-schema component refs are flat and safe to resolve eagerly, eliminating an entire class of "ref came through empty" bugs at the analyzer boundary.
 
 ## Canonical Data Models
 
-**This specification is the single source of truth for all data models below.** Other specs (03-cli, 04-config, 05-codegen, 06-openapi) must reference these definitions, not redefine them.
+This specification is the single source of truth for these models. Other specs reference these definitions, not redefine them.
 
-All models are implemented as Pydantic BaseModel. Each model that originates from OpenAPI data provides a `from_*` classmethod for construction from parser models.
-
-### OutputFile
-
-The instruction that connects LanguageTarget to TemplateRenderer.
-
-| Field | Type | Description |
-|-------|------|-------------|
-| template | str | Which .jinja template to use |
-| output_path | str | Where to write (relative to output_dir) |
-| context | dict | Data for this specific render |
+All models are Pydantic `BaseModel`. Each model that originates from OpenAPI data exposes a `from_*` classmethod for construction from parser models. Targets consume blueprints via `model_dump()`.
 
 ### APIBlueprint
 
-Normalized, language-agnostic API representation produced by SpecAnalyzer. Parser-agnostic — does not import or reference OpenAPI parser models.
+Normalized, language-agnostic API representation produced by `SpecAnalyzer.extract`. Parser-agnostic — does not import OpenAPI parser models.
 
 | Field | Type | Description |
-|-------|------|-------------|
+|---|---|---|
 | api_name | str | From info.title |
 | spec_version | str | From info.version |
 | spec_description | str? | From info.description |
@@ -309,17 +155,13 @@ Normalized, language-agnostic API representation produced by SpecAnalyzer. Parse
 | ipe_version | str | Ipê version |
 | generator_config | dict | Target-specific config |
 
-Targets use `model_dump()` for Jinja2 template consumption.
-
 ### StandardOperation
 
-One API operation (path + HTTP method combination).
-
 | Field | Type | Description |
-|-------|------|-------------|
+|---|---|---|
 | operation_id | str | Unique identifier |
 | method | str | GET, POST, PUT, PATCH, DELETE |
-| path | str | e.g. /users/{user_id} |
+| path | str | e.g. `/users/{user_id}` |
 | summary | str? | Short description |
 | description | str? | Full description |
 | tags | list[str] | Grouping tags |
@@ -331,7 +173,7 @@ One API operation (path + HTTP method combination).
 ### StandardParameter
 
 | Field | Type | Description |
-|-------|------|-------------|
+|---|---|---|
 | name | str | Parameter name |
 | location | str | path, query, header, cookie |
 | required | bool | Whether required |
@@ -342,10 +184,10 @@ One API operation (path + HTTP method combination).
 
 ### StandardModel
 
-A named schema from components/schemas (array schemas are skipped — they are type aliases).
+A named schema from `components/schemas`. Array schemas are skipped (they're type aliases).
 
 | Field | Type | Description |
-|-------|------|-------------|
+|---|---|---|
 | name | str | Schema name |
 | description | str? | Description |
 | properties | list[StandardProperty] | Model fields |
@@ -355,7 +197,7 @@ A named schema from components/schemas (array schemas are skipped — they are t
 ### StandardProperty
 
 | Field | Type | Description |
-|-------|------|-------------|
+|---|---|---|
 | name | str | Field name |
 | schema_type | str | OpenAPI type |
 | description | str? | Description |
@@ -368,7 +210,7 @@ A named schema from components/schemas (array schemas are skipped — they are t
 ### RequestBody
 
 | Field | Type | Description |
-|-------|------|-------------|
+|---|---|---|
 | required | bool | Whether required |
 | content_types | list[str] | e.g. application/json |
 | schema_type | str | OpenAPI type or model name |
@@ -378,7 +220,7 @@ A named schema from components/schemas (array schemas are skipped — they are t
 ### Response
 
 | Field | Type | Description |
-|-------|------|-------------|
+|---|---|---|
 | status_code | str | "200", "404", "default" |
 | description | str? | Description |
 | content_type | str? | Media type |
@@ -388,7 +230,7 @@ A named schema from components/schemas (array schemas are skipped — they are t
 ### AuthScheme
 
 | Field | Type | Description |
-|-------|------|-------------|
+|---|---|---|
 | name | str | Scheme identifier |
 | type | str | apiKey, http, oauth2, openIdConnect |
 | scheme | str? | bearer, basic (for type=http) |
@@ -398,171 +240,45 @@ A named schema from components/schemas (array schemas are skipped — they are t
 ### ValidationRule
 
 | Field | Type | Description |
-|-------|------|-------------|
-| rule_type | str | min_length, max_length, pattern, minimum, etc. |
-| value | Any | The constraint value |
+|---|---|---|
+| rule_type | str | min_length, pattern, minimum, etc. |
+| value | Any | Constraint value |
 
 ### SecurityRequirement
 
 | Field | Type | Description |
-|-------|------|-------------|
+|---|---|---|
 | scheme_name | str | References an AuthScheme |
 | scopes | list[str] | Required OAuth scopes (empty for non-oauth) |
 
 ## NamingConvention Protocol
 
-Each language target provides a `NamingConvention` that handles language-specific naming rules. This is composition, not inheritance -- targets use it, they're not forced into a hierarchy.
+Each target provides a `NamingConvention` that handles language-specific casing. Composition, not inheritance — targets use it, they're not forced into a hierarchy.
 
-```python
-class PythonNaming:
-    """Python naming conventions: snake_case methods, PascalCase classes."""
+The Protocol requires four methods that map a raw OpenAPI identifier to its language's preferred casing:
 
-    def class_name(self, raw: str) -> str:
-        return to_pascal_case(raw)
+- `class_name(raw)` — class/type declarations
+- `method_name(raw)` — operation methods
+- `field_name(raw)` — model fields and parameters
+- `module_name(raw)` — file/module identifiers
 
-    def method_name(self, raw: str) -> str:
-        return to_snake_case(raw)
+Python uses snake_case for everything except classes (PascalCase). Naming utility functions (`to_snake_case`, `to_pascal_case`, `to_camel_case`, `to_kebab_case`) live in `utils/naming.py` and are shared across targets.
 
-    def field_name(self, raw: str) -> str:
-        return to_snake_case(raw)
+## Resource Grouping
 
-    def module_name(self, raw: str) -> str:
-        return to_snake_case(raw)
+Operations are grouped into resources (Python classes, TypeScript modules, etc.) by the target's `group()` method. `utils/grouping.py` provides three reusable strategies:
 
+| Strategy | Bucket key | Example |
+|---|---|---|
+| `by_tag` | First operation tag, with path fallback | `Customers`, `Charges` |
+| `by_path` | First non-parameter path segment | `customers` for `/customers/{id}` |
+| `by_nested_path` | Dotted path segments | `customers.subscriptions` for `/customers/{id}/subscriptions` |
 
-class TypeScriptNaming:
-    """TypeScript naming: camelCase methods, PascalCase classes."""
+The Python target currently uses `by_nested_path` (one file per nested resource).
 
-    def class_name(self, raw: str) -> str:
-        return to_pascal_case(raw)
+## Template Customization
 
-    def method_name(self, raw: str) -> str:
-        return to_camel_case(raw)
-
-    def field_name(self, raw: str) -> str:
-        return to_camel_case(raw)
-
-    def module_name(self, raw: str) -> str:
-        return to_kebab_case(raw)
-```
-
-Utility functions (`to_snake_case`, `to_pascal_case`, etc.) live in `src/ipe/utils/naming.py`.
-
-## Target Implementation Example (Python)
-
-```python
-class PythonTarget:
-    """Python language target for code generation."""
-
-    TYPE_MAP: ClassVar[dict[tuple[str, str | None], str]] = {
-        ("string", None): "str",
-        ("string", "date-time"): "datetime",
-        ("string", "date"): "date",
-        ("string", "uuid"): "UUID",
-        ("string", "binary"): "bytes",
-        ("integer", None): "int",
-        ("integer", "int64"): "int",
-        ("number", None): "float",
-        ("number", "double"): "float",
-        ("boolean", None): "bool",
-        ("array", None): "list",
-        ("object", None): "dict[str, Any]",
-    }
-
-    def __init__(self) -> None:
-        self._naming = PythonNaming()
-
-    @property
-    def name(self) -> str:
-        return "python"
-
-    @property
-    def naming(self) -> PythonNaming:
-        return self._naming
-
-    def transform(self, blueprint: APIBlueprint) -> dict[str, Any]:
-        return {
-            **blueprint.to_dict(),
-            "python_models": self._transform_models(blueprint.models),
-            "python_operations": self._transform_operations(blueprint.operations),
-            "error_mappings": self._get_error_mappings(),
-        }
-
-    def plan(self, data: dict[str, Any]) -> list[OutputFile]:
-        module = data["module_name"]
-        files = [
-            OutputFile("__init__.py.jinja", f"{module}/__init__.py", data),
-            OutputFile("client.py.jinja", f"{module}/client.py", data),
-            OutputFile("exceptions.py.jinja", f"{module}/exceptions.py", data),
-            OutputFile("auth.py.jinja", f"{module}/auth.py", data),
-            OutputFile(
-                "models/__init__.py.jinja",
-                f"{module}/models/__init__.py",
-                data,
-            ),
-            OutputFile(
-                "resources/__init__.py.jinja",
-                f"{module}/resources/__init__.py",
-                data,
-            ),
-        ]
-
-        # Per-resource files
-        for resource_name, ops in data["resources"].items():
-            resource_data = {**data, "resource_name": resource_name, "operations": ops}
-            files.append(OutputFile(
-                "resources/resource.py.jinja",
-                f"{module}/resources/{resource_name}.py",
-                resource_data,
-            ))
-
-        # Per-model files
-        for group_name, models in data.get("model_groups", {}).items():
-            model_data = {**data, "group_name": group_name, "models": models}
-            files.append(OutputFile(
-                "models/model.py.jinja",
-                f"{module}/models/{group_name}.py",
-                model_data,
-            ))
-
-        return files
-
-    def get_template_dir(self) -> Path:
-        return Path(__file__).parent / "templates"
-
-    def validate_config(self, config: dict[str, Any]) -> bool:
-        ...
-
-    def get_default_config(self) -> dict[str, Any]:
-        return {
-            "client_library": "httpx",
-            "async_support": True,
-            "python_version": "3.9",
-            "use_pydantic_v2": True,
-        }
-
-    def _get_error_mappings(self) -> dict[int, str]:
-        return {
-            400: "BadRequestError",
-            401: "UnauthorizedError",
-            403: "ForbiddenError",
-            404: "NotFoundError",
-            409: "ConflictError",
-            422: "ValidationError",
-            429: "RateLimitError",
-            500: "InternalServerError",
-            502: "BadGatewayError",
-            503: "ServiceUnavailableError",
-        }
-```
-
-## Template Customization (v0.2+)
-
-Users can override individual Jinja2 templates without forking the entire target. This is configured via the `template_dir` field in `ipe.json`.
-
-### How It Works
-
-1. User sets `template_dir` in `ipe.json`:
+Users can override individual Jinja templates without forking the target. Configured via `template_dir` in `ipe.json`:
 
 ```json
 {
@@ -571,86 +287,73 @@ Users can override individual Jinja2 templates without forking the entire target
 }
 ```
 
-2. The `TemplateRenderer` uses Jinja2 `ChoiceLoader` to check the custom directory first, then fall back to the built-in templates (see TemplateRenderer implementation above).
-
-### Partial Override
-
-Users only need to provide the templates they want to customize:
-
-```
-my-templates/
-└── client.py.jinja    # Custom client template
-                       # models/, exceptions.py.jinja, etc.
-                       # inherited from built-in target
-```
+The renderer uses Jinja2 `ChoiceLoader`: the custom directory is checked first, built-in templates serve as fallback. Users only need to provide the templates they want to customize — the rest inherits from the target.
 
 ## Module Organization
 
 ```
 src/ipe/
-├── __init__.py                      # Public API exports
-├── cli/                             # Command-line interface
-│   ├── main.py                      # CLI application and routing
-│   └── console.py                   # Rich console utilities
-├── core/                            # PIPELINE COMPONENTS
-│   ├── __init__.py
-│   ├── analyzer.py                  # SpecAnalyzer (OpenAPI → APIBlueprint)
-│   ├── generator.py                 # CodeGenerator (pipeline coordinator)
-│   ├── renderer.py                  # TemplateRenderer (Jinja2 + pathlib)
-│   ├── config.py                    # Configuration management
-│   └── exceptions.py                # Core exception hierarchy
-├── parsers/                         # OpenAPI specification parsing
-│   ├── __init__.py
-│   ├── openapi.py                   # Main OpenAPI parser
-│   ├── models.py                    # Pydantic models for OpenAPI structures
-│   ├── resolver.py                  # $ref resolution
-│   └── fetcher.py                   # URL and file fetching
-├── targets/                         # LANGUAGE TARGET SYSTEM
-│   ├── __init__.py
-│   ├── base.py                      # LanguageTarget + NamingConvention Protocols
-│   ├── registry.py                  # TargetRegistry with register()
-│   └── python/                      # Python target (v0.1)
-│       ├── target.py                # PythonTarget implementation
-│       ├── naming.py                # PythonNaming implementation
-│       └── templates/               # Jinja2 .jinja files
-├── models/                          # Shared data models
-│   ├── __init__.py
-│   ├── blueprint.py                 # APIBlueprint, OutputFile
-│   └── standard.py                  # StandardOperation, StandardModel, etc.
-└── utils/                           # Shared utilities
-    └── naming.py                    # to_snake_case, to_pascal_case, etc.
+├── __init__.py
+├── cli/                       # Command-line interface
+│   ├── main.py                # Typer commands
+│   └── console.py             # Rich console output
+├── core/                      # Pipeline components
+│   ├── analyzer.py            # SpecAnalyzer
+│   ├── generator.py           # CodeGenerator
+│   ├── renderer.py            # TemplateTreeRenderer + Jinja filters
+│   ├── config.py              # IpeConfig
+│   └── exceptions.py          # Exception hierarchy
+├── parsers/                   # OpenAPI parsing
+│   ├── openapi.py             # parse_openapi + 3.0→3.1 normalization
+│   ├── models.py              # Pydantic OpenAPI models
+│   ├── resolver.py            # resolve_refs walker with ref_filter
+│   └── fetcher.py             # Local / HTTPS spec fetching
+├── targets/                   # Language target system
+│   ├── base.py                # LanguageTarget + NamingConvention Protocols
+│   ├── registry.py            # TargetRegistry
+│   └── python/                # Python target (v0.1)
+│       ├── target.py          # PythonTarget
+│       ├── naming.py          # PythonNaming
+│       └── templates/         # Jinja .jinja files
+├── models/                    # Shared data models
+│   ├── blueprint.py           # APIBlueprint
+│   └── standard.py            # StandardOperation, StandardModel, ...
+└── utils/
+    ├── naming.py              # Casing helpers
+    └── grouping.py            # Resource grouping strategies
 ```
 
 ## Architecture Benefits
 
-### Separation of Concerns
-- **SpecAnalyzer**: Handles OpenAPI complexity once for all languages
-- **LanguageTarget**: Focuses on language-specific code generation and type mapping
-- **TemplateRenderer**: Handles Jinja2 rendering and disk I/O
-- **CodeGenerator**: Coordinates the pipeline without knowing details
+**Separation of concerns**
 
-### Language Extensibility
-- Add new languages by implementing the `LanguageTarget` Protocol and calling `registry.register()`
-- No inheritance required -- structural subtyping via Protocol
-- Each target is self-contained and independently developed
+- `SpecAnalyzer` handles OpenAPI complexity once for all languages.
+- `LanguageTarget` carries language-specific decisions without touching parsing or I/O.
+- `TemplateTreeRenderer` handles rendering and disk I/O without knowing the language.
+- `CodeGenerator` coordinates without owning details.
 
-### Testability
-- Each component testable in isolation
-- Protocol-based design enables easy test doubles
-- `dry_run()` on TemplateRenderer enables output preview without I/O
+**Language extensibility**
 
-### Future-Proofing
-- New OpenAPI features added to SpecAnalyzer automatically benefit all languages
-- `register()` API enables third-party and community-contributed targets
-- `ChoiceLoader` enables template customization without forking
+- New languages implement the `LanguageTarget` Protocol and call `registry.register()`.
+- Protocol-based design — no inheritance required.
+- Each target is self-contained: its templates, naming, and type resolution live under `targets/<name>/`.
 
-## Implementation Strategy
+**Template-tree-as-plan**
 
-### Phase 1: Foundation + Python (v0.1)
-Build the pipeline with Python as the sole built-in target. This validates the architecture end-to-end: parsing, blueprint extraction, type mapping, Jinja2 rendering, and file writing.
+- The directory of `.jinja` files is the render plan. No separate plan object, no `OutputFile`.
+- `{name}.py.jinja` convention handles repeated templates (one per item in a collection).
+- Lower coupling: adding a new generated file means dropping a `.jinja` in the template tree.
 
-### Phase 2: Template Customization + TypeScript (v0.2+)
-Add `ChoiceLoader`-based template customization and the TypeScript target to validate that the design handles diverse language requirements.
+**Testability**
 
-### Phase 3: Ecosystem Expansion (v0.3+)
-Additional language targets (Go, Rust) and community contributions via `register()`. Entry_points discovery for pip-installable targets.
+- Each component testable in isolation.
+- Protocol-based contracts make test doubles trivial.
+- Golden-file tests at the CLI boundary catch regressions across the full pipeline.
+
+## Implementation Status
+
+| Phase | Scope | Status |
+|---|---|---|
+| 1 — Foundation + Python | Pipeline, Python target, CLI | Done (v0.1) |
+| 2 — Template customization + TypeScript | `ChoiceLoader` overrides, second target | Customization done; TS target pending |
+| 3 — Ecosystem | Additional targets (Go, Rust), entry_points discovery | Planned |
