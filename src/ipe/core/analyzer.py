@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from datetime import UTC, datetime
 
 from ipe import __version__
@@ -13,8 +14,17 @@ _HTTP_METHODS = ("get", "put", "post", "delete", "options", "head", "patch", "tr
 
 
 class SpecAnalyzer:
-    def parse(self, spec_path: str) -> OpenAPISpec:
-        return parse_openapi(fetch_spec(spec_path))
+    def parse(
+        self,
+        spec_path: str,
+        on_phase: Callable[[str], None] | None = None,
+    ) -> OpenAPISpec:
+        report = on_phase or (lambda _: None)
+
+        report("Loading spec")
+        raw = fetch_spec(spec_path)
+
+        return parse_openapi(raw, on_phase=on_phase)
 
     def extract(self, spec: OpenAPISpec, config: IpeConfig) -> APIBlueprint:
         server_urls = [s.url for s in spec.servers] if spec.servers else []

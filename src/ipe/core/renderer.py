@@ -1,4 +1,5 @@
 import re
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -37,13 +38,18 @@ class TemplateTreeRenderer:
         output_dir: Path,
         context: dict[str, Any],
         custom_dir: Path | None = None,
+        on_file: Callable[[Path], None] | None = None,
     ) -> list[Path]:
         env = self._get_env(template_dir, custom_dir)
         written: list[Path] = []
 
         for template_path in sorted(template_dir.rglob("*.jinja")):
             relative = template_path.relative_to(template_dir)
-            written.extend(self._process_template(env, relative, output_dir, context))
+            new_files = self._process_template(env, relative, output_dir, context)
+            written.extend(new_files)
+            if on_file:
+                for path in new_files:
+                    on_file(path)
 
         return written
 

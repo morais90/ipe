@@ -83,9 +83,6 @@ def generate(
     ] = None,
 ) -> None:
     """Generate code from an OpenAPI specification."""
-    console.print_header()
-    console.info(f"Generating {target} client from {spec}")
-
     config = IpeConfig(
         spec_path=spec,
         output_dir=output,
@@ -95,7 +92,12 @@ def generate(
 
     start = time.monotonic()
     try:
-        written = CodeGenerator().run(config)
+        with console.generation_progress(__version__, target, spec) as progress:
+            result = CodeGenerator().run(
+                config,
+                on_phase=progress.on_phase,
+                on_file=progress.on_file,
+            )
     except IpeError as exc:
         console.error(str(exc))
         if exc.suggestion:
@@ -103,7 +105,15 @@ def generate(
         raise typer.Exit(code=1) from exc
 
     duration = time.monotonic() - start
-    console.print_generation_summary(str(output), len(written), duration)
+    console.print_completion(
+        api_name=result.api_name,
+        operations=result.operations,
+        models=result.models,
+        resources=result.resources,
+        files=len(result.files),
+        output_path=str(output),
+        duration=duration,
+    )
 
 
 @app.command()

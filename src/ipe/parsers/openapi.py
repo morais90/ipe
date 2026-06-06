@@ -23,12 +23,22 @@ _INLINEABLE_REF_PREFIXES = tuple(
 )
 
 
-def parse_openapi(spec_dict: dict[str, Any]) -> OpenAPISpec:
+def parse_openapi(
+    spec_dict: dict[str, Any],
+    on_phase: Callable[[str], None] | None = None,
+) -> OpenAPISpec:
+    report = on_phase or (lambda _: None)
+
     _validate_version(spec_dict)
+
+    report("Normalizing schemas")
     working = copy.deepcopy(spec_dict)
     _normalize_30_to_31(working)
+
+    report("Inlining $refs")
     resolve_refs(working, ref_filter=_is_inlineable_ref)
 
+    report("Validating spec structure")
     try:
         spec = OpenAPISpec.model_validate(working)
     except PydanticValidationError as exc:
@@ -37,6 +47,7 @@ def parse_openapi(spec_dict: dict[str, Any]) -> OpenAPISpec:
             "Check the spec against the OpenAPI 3.x specification",
         ) from exc
 
+    report("Indexing schemas")
     if spec.components and spec.components.schemas:
         bind_schema_registry(spec.components.schemas)
 
