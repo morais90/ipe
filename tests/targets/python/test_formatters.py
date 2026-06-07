@@ -48,7 +48,7 @@ class TestRuffFormatterVerify:
 
 
 class TestRuffFormatterFormat:
-    def test_runs_format_and_check(self, tmp_path: Path):
+    def test_runs_format_and_check_with_strict_rules(self, tmp_path: Path):
         formatter = RuffFormatter({"line-length": 100})
 
         with mock.patch("ipe.targets.python.formatters.subprocess.run") as run:
@@ -56,15 +56,42 @@ class TestRuffFormatterFormat:
             formatter.format(tmp_path)
 
         commands = [call.args[0] for call in run.call_args_list]
+
         assert commands == [
             ["ruff", "format", "--line-length", "100", str(tmp_path)],
             [
                 "ruff",
                 "check",
                 "--fix",
-                "--exit-zero",
                 "--line-length",
                 "100",
+                "--select",
+                "E,F,W,I,N,UP,B,C4,SIM,RUF",
+                "--ignore",
+                "E501,RUF002,RUF003",
+                str(tmp_path),
+            ],
+        ]
+
+    def test_user_select_overrides_strict_default(self, tmp_path: Path):
+        formatter = RuffFormatter({"select": ["E", "F"], "ignore": ["W"]})
+
+        with mock.patch("ipe.targets.python.formatters.subprocess.run") as run:
+            run.return_value = mock.Mock(returncode=0, stdout="", stderr="")
+            formatter.format(tmp_path)
+
+        commands = [call.args[0] for call in run.call_args_list]
+
+        assert commands == [
+            ["ruff", "format", str(tmp_path)],
+            [
+                "ruff",
+                "check",
+                "--fix",
+                "--select",
+                "E,F",
+                "--ignore",
+                "W",
                 str(tmp_path),
             ],
         ]

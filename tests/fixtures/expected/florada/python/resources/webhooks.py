@@ -49,3 +49,4 @@ class WebhooksResource:
             url,
         )
         response.raise_for_status()
+        return None

@@ -36,10 +36,21 @@ def success_response(responses: list[dict[str, Any]]) -> dict[str, Any] | None:
 
 
 class _ResponseView:
-    def __init__(self, raw: dict[str, Any] | None) -> None:
+    def __init__(
+        self,
+        raw: dict[str, Any] | None,
+        target: LanguageTarget | None = None,
+    ) -> None:
         raw = raw or {}
 
-        self.models: list[str] = list(raw.get("model_names") or [])
+        self._target = target
+
+        raw_models = list(raw.get("model_names") or [])
+        self.models: list[str] = (
+            [target.naming.class_name(m) for m in raw_models]
+            if target
+            else raw_models
+        )
         self.is_list: bool = bool(raw.get("is_list", False))
         self.discriminator: str | None = raw.get("discriminator")
         self.primitive: str | None = raw.get("primitive_type")
@@ -52,10 +63,19 @@ class _ResponseView:
 
     def type_annotation(self) -> str:
         if not self.models:
-            return self.primitive or "None"
+            return self._render_primitive()
 
         base = " | ".join(self.models) if len(self.models) > 1 else self.models[0]
         return f"list[{base}]" if self.is_list else base
+
+    def _render_primitive(self) -> str:
+        if not self.primitive:
+            return "None"
+
+        if self._target is None:
+            return self.primitive
+
+        return self._target.resolve_type(self.primitive, None)
 
     def deserialize_expression(self) -> str:
         if not self.models:
@@ -84,12 +104,12 @@ class _ResponseView:
         return f"{model}.model_validate(response.json())"
 
 
-def response_type(success: dict[str, Any] | None) -> str:
-    return _ResponseView(success).type_annotation()
+def response_type(target: LanguageTarget, success: dict[str, Any] | None) -> str:
+    return _ResponseView(success, target).type_annotation()
 
 
-def response_deserialize(success: dict[str, Any] | None) -> str:
-    return _ResponseView(success).deserialize_expression()
+def response_deserialize(target: LanguageTarget, success: dict[str, Any] | None) -> str:
+    return _ResponseView(success, target).deserialize_expression()
 
 
 def type_imports(target: LanguageTarget, properties: list[dict[str, Any]]) -> str:

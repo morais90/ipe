@@ -103,6 +103,7 @@ class CustomersResource:
             url,
         )
         response.raise_for_status()
+        return None
 
     def patch_customer(
         self,

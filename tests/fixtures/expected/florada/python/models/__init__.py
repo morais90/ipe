@@ -37,51 +37,52 @@ __all__ = [
     "WebhookEndpoint",
 ]
 
+_MODULES = {
+    "Address": "address",
+    "AttachPaymentMethodRequest": "attach_payment_method_request",
+    "BillingInterval": "billing_interval",
+    "BoletoDetails": "boleto_details",
+    "CancelSubscriptionRequest": "cancel_subscription_request",
+    "CaptureChargeRequest": "capture_charge_request",
+    "CardDetails": "card_details",
+    "Charge": "charge",
+    "ChargeList": "charge_list",
+    "ChargeStatus": "charge_status",
+    "CreateChargeRequest": "create_charge_request",
+    "CreateCustomerRequest": "create_customer_request",
+    "CreatePlanRequest": "create_plan_request",
+    "CreateRefundRequest": "create_refund_request",
+    "CreateSubscriptionRequest": "create_subscription_request",
+    "CreateWebhookRequest": "create_webhook_request",
+    "Customer": "customer",
+    "CustomerList": "customer_list",
+    "Dispute": "dispute",
+    "DisputeEvidence": "dispute_evidence",
+    "DisputeReason": "dispute_reason",
+    "DisputeStatus": "dispute_status",
+    "Error": "error",
+    "FieldError": "field_error",
+    "Money": "money",
+    "PaginationMeta": "pagination_meta",
+    "PatchCustomerRequest": "patch_customer_request",
+    "PaymentMethod": "payment_method",
+    "PixDetails": "pix_details",
+    "Plan": "plan",
+    "Refund": "refund",
+    "Subscription": "subscription",
+    "SubscriptionStatus": "subscription_status",
+    "UpdateCustomerRequest": "update_customer_request",
+    "ValidationErrorResponse": "validation_error_response",
+    "WebhookEndpoint": "webhook_endpoint",
+}
+
 
 def __getattr__(name: str):
     """Lazy import models on first access."""
+    if name not in _MODULES:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
     from importlib import import_module
 
-    _model_map = {
-        "Address": "florada_payments.models.address",
-        "AttachPaymentMethodRequest": "florada_payments.models.attach_payment_method_request",
-        "BillingInterval": "florada_payments.models.billing_interval",
-        "BoletoDetails": "florada_payments.models.boleto_details",
-        "CancelSubscriptionRequest": "florada_payments.models.cancel_subscription_request",
-        "CaptureChargeRequest": "florada_payments.models.capture_charge_request",
-        "CardDetails": "florada_payments.models.card_details",
-        "Charge": "florada_payments.models.charge",
-        "ChargeList": "florada_payments.models.charge_list",
-        "ChargeStatus": "florada_payments.models.charge_status",
-        "CreateChargeRequest": "florada_payments.models.create_charge_request",
-        "CreateCustomerRequest": "florada_payments.models.create_customer_request",
-        "CreatePlanRequest": "florada_payments.models.create_plan_request",
-        "CreateRefundRequest": "florada_payments.models.create_refund_request",
-        "CreateSubscriptionRequest": "florada_payments.models.create_subscription_request",
-        "CreateWebhookRequest": "florada_payments.models.create_webhook_request",
-        "Customer": "florada_payments.models.customer",
-        "CustomerList": "florada_payments.models.customer_list",
-        "Dispute": "florada_payments.models.dispute",
-        "DisputeEvidence": "florada_payments.models.dispute_evidence",
-        "DisputeReason": "florada_payments.models.dispute_reason",
-        "DisputeStatus": "florada_payments.models.dispute_status",
-        "Error": "florada_payments.models.error",
-        "FieldError": "florada_payments.models.field_error",
-        "Money": "florada_payments.models.money",
-        "PaginationMeta": "florada_payments.models.pagination_meta",
-        "PatchCustomerRequest": "florada_payments.models.patch_customer_request",
-        "PaymentMethod": "florada_payments.models.payment_method",
-        "PixDetails": "florada_payments.models.pix_details",
-        "Plan": "florada_payments.models.plan",
-        "Refund": "florada_payments.models.refund",
-        "Subscription": "florada_payments.models.subscription",
-        "SubscriptionStatus": "florada_payments.models.subscription_status",
-        "UpdateCustomerRequest": "florada_payments.models.update_customer_request",
-        "ValidationErrorResponse": "florada_payments.models.validation_error_response",
-        "WebhookEndpoint": "florada_payments.models.webhook_endpoint",
-    }
-
-    if name in _model_map:
-        module = import_module(_model_map[name])
-        return getattr(module, name)
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    module = import_module(f"{__name__}.{_MODULES[name]}")
+    return getattr(module, name)

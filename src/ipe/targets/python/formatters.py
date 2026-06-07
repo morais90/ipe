@@ -41,6 +41,26 @@ def _run(cmd: list[str]) -> None:
         )
 
 
+_STRICT_RULES = (
+    "E",
+    "F",
+    "W",
+    "I",
+    "N",
+    "UP",
+    "B",
+    "C4",
+    "SIM",
+    "RUF",
+)
+
+_STRICT_IGNORE = (
+    "E501",
+    "RUF002",
+    "RUF003",
+)
+
+
 class RuffFormatter:
     def __init__(self, options: dict[str, Any]) -> None:
         self._options = options
@@ -49,6 +69,20 @@ class RuffFormatter:
         _run(["ruff", "--version"])
 
     def format(self, output_dir: Path) -> None:
-        args = _options_to_args(self._options)
-        _run(["ruff", "format", *args, str(output_dir)])
-        _run(["ruff", "check", "--fix", "--exit-zero", *args, str(output_dir)])
+        options = dict(self._options)
+        user_select = options.pop("select", None)
+        user_ignore = options.pop("ignore", None)
+
+        common = _options_to_args(options)
+
+        select = user_select if user_select is not None else _STRICT_RULES
+        ignore = user_ignore if user_ignore is not None else _STRICT_IGNORE
+
+        check_args = [
+            *common,
+            "--select", ",".join(str(rule) for rule in select),
+            "--ignore", ",".join(str(rule) for rule in ignore),
+        ]
+
+        _run(["ruff", "format", *common, str(output_dir)])
+        _run(["ruff", "check", "--fix", *check_args, str(output_dir)])

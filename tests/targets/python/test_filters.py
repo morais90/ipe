@@ -163,7 +163,7 @@ class TestResponseTypeFilter:
         [
             (None, "None"),
             ({"model_names": [], "primitive_type": None}, "None"),
-            ({"model_names": [], "primitive_type": "string"}, "string"),
+            ({"model_names": [], "primitive_type": "string"}, "str"),
             ({"model_names": ["Charge"], "is_list": False}, "Charge"),
             ({"model_names": ["Charge"], "is_list": True}, "list[Charge]"),
             ({"model_names": ["A", "B"], "is_list": False}, "A | B"),

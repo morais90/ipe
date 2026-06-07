@@ -4,18 +4,19 @@ __all__ = [
 {% endfor %}
 ]
 
+_MODULES = {
+{% for model in models | sort(attribute="name") %}
+    "{{ model.name | class_name }}": "{{ model.name | module_name }}",
+{% endfor %}
+}
+
 
 def __getattr__(name: str):
     """Lazy import models on first access."""
+    if name not in _MODULES:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
     from importlib import import_module
 
-    _model_map = {
-{% for model in models | sort(attribute="name") %}
-        "{{ model.name | class_name }}": "{{ module_name }}.models.{{ model.name | module_name }}",
-{% endfor %}
-    }
-
-    if name in _model_map:
-        module = import_module(_model_map[name])
-        return getattr(module, name)
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    module = import_module(f"{__name__}.{_MODULES[name]}")
+    return getattr(module, name)

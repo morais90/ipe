@@ -66,3 +66,4 @@ class CustomersPaymentMethodsResource:
             url,
         )
         response.raise_for_status()
+        return None

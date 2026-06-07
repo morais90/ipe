@@ -91,6 +91,6 @@ class PythonTarget:
             "param_type_imports": partial(filters.param_type_imports, self),
             "resource_imports": partial(filters.resource_imports, self),
             "success_response": filters.success_response,
-            "response_type": filters.response_type,
-            "response_deserialize": filters.response_deserialize,
+            "response_type": partial(filters.response_type, self),
+            "response_deserialize": partial(filters.response_deserialize, self),
         }
