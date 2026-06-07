@@ -39,11 +39,16 @@ class TestPythonTargetProperties:
 
 
 class TestPythonTargetResolveType:
-    def test_parameter_types(self, target: PythonTarget, florada_operations: list[StandardOperation]):
+    def test_parameter_types(
+        self, target: PythonTarget, florada_operations: list[StandardOperation]
+    ):
         list_charges = florada_operations[0]
         limit_param = next(p for p in list_charges.parameters if p.name == "limit")
 
-        assert target.resolve_type(limit_param.schema_type, limit_param.schema_format) == "int"
+        assert (
+            target.resolve_type(limit_param.schema_type, limit_param.schema_format)
+            == "int"
+        )
 
     def test_property_types(self, target: PythonTarget):
         analyzer = SpecAnalyzer()
@@ -54,8 +59,14 @@ class TestPythonTargetResolveType:
         amount_prop = next(p for p in money_model.properties if p.name == "amount")
         currency_prop = next(p for p in money_model.properties if p.name == "currency")
 
-        assert target.resolve_type(amount_prop.schema_type, amount_prop.schema_format) == "int"
-        assert target.resolve_type(currency_prop.schema_type, currency_prop.schema_format) == "str"
+        assert (
+            target.resolve_type(amount_prop.schema_type, amount_prop.schema_format)
+            == "int"
+        )
+        assert (
+            target.resolve_type(currency_prop.schema_type, currency_prop.schema_format)
+            == "str"
+        )
 
     def test_unknown_type_returns_any(self, target: PythonTarget):
         assert target.resolve_type("unknown", None) == "Any"
@@ -65,7 +76,9 @@ class TestPythonTargetResolveType:
 
 
 class TestPythonTargetGroup:
-    def test_groups_by_nested_path(self, target: PythonTarget, florada_operations: list[StandardOperation]):
+    def test_groups_by_nested_path(
+        self, target: PythonTarget, florada_operations: list[StandardOperation]
+    ):
         resources = target.group(florada_operations)
 
         assert set(resources.keys()) == {
@@ -81,7 +94,6 @@ class TestPythonTargetGroup:
             "plans",
             "webhooks",
         }
-
 
 
 class TestPythonTargetFormatter:

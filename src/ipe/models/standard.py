@@ -146,9 +146,7 @@ class RequestBody(BaseModel):
     description: str | None = None
 
     @classmethod
-    def from_request_body(
-        cls, body: openapi.RequestBody
-    ) -> RequestBody | None:
+    def from_request_body(cls, body: openapi.RequestBody) -> RequestBody | None:
         if not body.content:
             return None
 
@@ -181,9 +179,7 @@ class Response(BaseModel):
     primitive_type: str | None = None
 
     @classmethod
-    def from_response(
-        cls, status_code: str, resp: openapi.Response
-    ) -> Response:
+    def from_response(cls, status_code: str, resp: openapi.Response) -> Response:
         content_type = next(iter(resp.content), None) if resp.content else None
         schema: openapi.Schema | None = None
         if content_type and resp.content:

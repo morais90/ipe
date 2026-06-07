@@ -50,9 +50,7 @@ class _ResponseView:
 
         raw_models = list(raw.get("model_names") or [])
         self.models: list[str] = (
-            [target.naming.class_name(m) for m in raw_models]
-            if target
-            else raw_models
+            [target.naming.class_name(m) for m in raw_models] if target else raw_models
         )
         self.is_list: bool = bool(raw.get("is_list", False))
         self.discriminator: str | None = raw.get("discriminator")

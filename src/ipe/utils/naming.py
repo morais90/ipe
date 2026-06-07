@@ -1,4 +1,3 @@
-
 import re
 
 _CONSECUTIVE_CAPS = re.compile(r"([A-Z]+)([A-Z][a-z])")
@@ -22,6 +21,4 @@ def to_pascal_case(raw: str) -> str:
     if not raw:
         return ""
 
-    return "".join(
-        word.capitalize() for word in to_snake_case(raw).split("_") if word
-    )
+    return "".join(word.capitalize() for word in to_snake_case(raw).split("_") if word)

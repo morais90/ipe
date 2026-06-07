@@ -48,7 +48,13 @@ class TestParseOpenAPI:
         status_prop = charge.properties["status"]
         assert status_prop.ref == "#/components/schemas/ChargeStatus"
         assert status_prop.type == "string"
-        assert status_prop.enum == ["pending", "succeeded", "failed", "refunded", "disputed"]
+        assert status_prop.enum == [
+            "pending",
+            "succeeded",
+            "failed",
+            "refunded",
+            "disputed",
+        ]
 
 
 class TestVersionValidation:
@@ -111,7 +117,9 @@ class TestNormalization30to31:
 
         assert spec.components is not None
         assert spec.components.schemas is not None
-        assert spec.components.schemas["Nullable"].model_dump(by_alias=True, exclude_unset=True) == {
+        assert spec.components.schemas["Nullable"].model_dump(
+            by_alias=True, exclude_unset=True
+        ) == {
             "type": ["string", "null"],
         }
 
@@ -135,7 +143,9 @@ class TestNormalization30to31:
 
         assert spec.components is not None
         assert spec.components.schemas is not None
-        assert spec.components.schemas["Bounded"].model_dump(by_alias=True, exclude_unset=True) == {
+        assert spec.components.schemas["Bounded"].model_dump(
+            by_alias=True, exclude_unset=True
+        ) == {
             "type": "integer",
             "exclusiveMinimum": 0.0,
         }
@@ -160,7 +170,9 @@ class TestNormalization30to31:
 
         assert spec.components is not None
         assert spec.components.schemas is not None
-        assert spec.components.schemas["Bounded"].model_dump(by_alias=True, exclude_unset=True) == {
+        assert spec.components.schemas["Bounded"].model_dump(
+            by_alias=True, exclude_unset=True
+        ) == {
             "type": "integer",
             "exclusiveMaximum": 100.0,
         }
@@ -184,7 +196,9 @@ class TestNormalization30to31:
 
         assert spec.components is not None
         assert spec.components.schemas is not None
-        assert spec.components.schemas["WithExample"].model_dump(by_alias=True, exclude_unset=True) == {
+        assert spec.components.schemas["WithExample"].model_dump(
+            by_alias=True, exclude_unset=True
+        ) == {
             "type": "string",
             "examples": ["hello"],
         }

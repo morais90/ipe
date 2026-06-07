@@ -13,7 +13,9 @@ class TestStandardPropertyFromSchema:
             }
         )
 
-        prop = StandardProperty.from_schema("username", schema, required_fields=["username"])
+        prop = StandardProperty.from_schema(
+            "username", schema, required_fields=["username"]
+        )
 
         assert prop.model_dump() == {
             "name": "username",
@@ -65,7 +67,9 @@ class TestStandardPropertyFromSchema:
             }
         )
 
-        prop = StandardProperty.from_schema("status", schema, required_fields=["status"])
+        prop = StandardProperty.from_schema(
+            "status", schema, required_fields=["status"]
+        )
 
         assert prop.model_dump() == {
             "name": "status",

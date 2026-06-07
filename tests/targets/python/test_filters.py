@@ -121,10 +121,7 @@ class TestParamTypeImportsFilter:
             {"operations": operations},
         )
 
-        assert result == (
-            "from datetime import date\n"
-            "from uuid import UUID\n"
-        )
+        assert result == ("from datetime import date\nfrom uuid import UUID\n")
 
 
 class TestSuccessResponseFilter:
@@ -266,9 +263,7 @@ class TestResourceImportsFilter:
             "from florada_payments.exceptions import validated"
         )
 
-    def test_adds_type_adapter_for_union(
-        self, template_dir: Path, output_dir: Path
-    ):
+    def test_adds_type_adapter_for_union(self, template_dir: Path, output_dir: Path):
         operations = [
             {
                 "parameters": [],
@@ -376,14 +371,10 @@ class TestFieldTypeFilter:
         )
 
         assert result == (
-            "Annotated[str, Field("
-            "min_length=3, max_length=64, pattern='^[a-z]+$'"
-            ")]"
+            "Annotated[str, Field(min_length=3, max_length=64, pattern='^[a-z]+$')]"
         )
 
-    def test_numeric_bounds_map_to_ge_le(
-        self, template_dir: Path, output_dir: Path
-    ):
+    def test_numeric_bounds_map_to_ge_le(self, template_dir: Path, output_dir: Path):
         prop = {
             "schema_type": "integer",
             "schema_format": None,

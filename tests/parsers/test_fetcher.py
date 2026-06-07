@@ -36,7 +36,9 @@ class TestFetchFromFile:
 
     def test_json_file(self, tmp_path: Path):
         spec_file = tmp_path / "spec.json"
-        spec_file.write_text('{"openapi": "3.0.0", "info": {"title": "T", "version": "1"}, "paths": {}}')
+        spec_file.write_text(
+            '{"openapi": "3.0.0", "info": {"title": "T", "version": "1"}, "paths": {}}'
+        )
 
         result = fetch_spec(str(spec_file))
 
