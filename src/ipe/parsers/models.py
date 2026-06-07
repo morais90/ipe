@@ -6,8 +6,8 @@ from typing import Any, ClassVar
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
-_schema_registry: contextvars.ContextVar[dict[str, Schema] | None] = contextvars.ContextVar(
-    "_schema_registry", default=None
+_schema_registry: contextvars.ContextVar[dict[str, Schema] | None] = (
+    contextvars.ContextVar("_schema_registry", default=None)
 )
 
 
@@ -184,10 +184,9 @@ class Schema(OpenAPIBaseModel):
 
 
 def bind_schema_registry(schemas: dict[str, Schema]) -> None:
-    _schema_registry.set({
-        f"#/components/schemas/{name}": schema
-        for name, schema in schemas.items()
-    })
+    _schema_registry.set(
+        {f"#/components/schemas/{name}": schema for name, schema in schemas.items()}
+    )
 
 
 # --- Models that depend on Schema (ordered by dependency) ---

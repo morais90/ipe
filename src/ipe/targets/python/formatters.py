@@ -80,8 +80,10 @@ class RuffFormatter:
 
         check_args = [
             *common,
-            "--select", ",".join(str(rule) for rule in select),
-            "--ignore", ",".join(str(rule) for rule in ignore),
+            "--select",
+            ",".join(str(rule) for rule in select),
+            "--ignore",
+            ",".join(str(rule) for rule in ignore),
         ]
 
         _run(["ruff", "format", *common, str(output_dir)])

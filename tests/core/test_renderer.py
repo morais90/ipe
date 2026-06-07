@@ -43,4 +43,7 @@ class TestRenderOnFile:
             on_file=seen.append,
         )
 
-        assert seen == [output_dir / "models" / "user.py", output_dir / "models" / "post.py"]
+        assert seen == [
+            output_dir / "models" / "user.py",
+            output_dir / "models" / "post.py",
+        ]

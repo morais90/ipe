@@ -13,7 +13,9 @@ runner = CliRunner()
 
 class TestGenerateCommandErrors:
     def test_spec_not_found(self, tmp_path: Path):
-        result = runner.invoke(app, ["generate", "/nonexistent.yaml", "--output", str(tmp_path)])
+        result = runner.invoke(
+            app, ["generate", "/nonexistent.yaml", "--output", str(tmp_path)]
+        )
 
         assert result.exit_code == 1
 
@@ -63,4 +65,6 @@ class TestGenerateGoldenFiles:
         assert generated_files == expected_files
 
         for relative in expected_files:
-            assert (tmp_path / relative).read_text() == (expected_dir / relative).read_text()
+            assert (tmp_path / relative).read_text() == (
+                expected_dir / relative
+            ).read_text()

@@ -26,7 +26,10 @@ class TestResolveSimpleRefs:
         spec: dict[str, Any] = {
             "components": {
                 "schemas": {
-                    "Pet": {"type": "object", "properties": {"name": {"type": "string"}}},
+                    "Pet": {
+                        "type": "object",
+                        "properties": {"name": {"type": "string"}},
+                    },
                 },
             },
             "paths": {
@@ -48,7 +51,9 @@ class TestResolveSimpleRefs:
 
         result = resolve_refs(spec)
 
-        resolved_schema = result["paths"]["/pets"]["get"]["responses"]["200"]["content"]["application/json"]["schema"]
+        resolved_schema = result["paths"]["/pets"]["get"]["responses"]["200"][
+            "content"
+        ]["application/json"]["schema"]
         assert resolved_schema == {
             "type": "object",
             "properties": {"name": {"type": "string"}},
@@ -69,7 +74,9 @@ class TestResolveRealSpecs:
     def test_florada_response_ref(self, florada_spec: dict[str, Any]):
         result = resolve_refs(florada_spec)
 
-        error_schema = result["components"]["responses"]["BadRequest"]["content"]["application/json"]["schema"]
+        error_schema = result["components"]["responses"]["BadRequest"]["content"][
+            "application/json"
+        ]["schema"]
         assert error_schema == result["components"]["schemas"]["Error"]
 
     def test_florada_parameter_ref(self, florada_spec: dict[str, Any]):

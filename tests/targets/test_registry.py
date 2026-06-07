@@ -73,7 +73,9 @@ class TestTargetRegistry:
             registry.get("rust")
 
     def test_get_unknown_shows_available(self, registry: TargetRegistry):
-        with pytest.raises(ConfigurationError, match="Unknown target language") as exc_info:
+        with pytest.raises(
+            ConfigurationError, match="Unknown target language"
+        ) as exc_info:
             registry.get("rust")
 
         assert exc_info.value.suggestion == "Available targets: python"

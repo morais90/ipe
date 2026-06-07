@@ -226,7 +226,9 @@ class TestSpecAnalyzerExtractAuth:
         }
 
     def test_bearer_auth(self, florada_blueprint: APIBlueprint):
-        bearer = next(s for s in florada_blueprint.auth_schemes if s.name == "bearerAuth")
+        bearer = next(
+            s for s in florada_blueprint.auth_schemes if s.name == "bearerAuth"
+        )
         assert bearer.model_dump() == {
             "name": "bearerAuth",
             "type": "http",
@@ -236,7 +238,9 @@ class TestSpecAnalyzerExtractAuth:
         }
 
     def test_api_key_auth(self, florada_blueprint: APIBlueprint):
-        api_key = next(s for s in florada_blueprint.auth_schemes if s.name == "apiKeyAuth")
+        api_key = next(
+            s for s in florada_blueprint.auth_schemes if s.name == "apiKeyAuth"
+        )
         assert api_key.model_dump() == {
             "name": "apiKeyAuth",
             "type": "apiKey",
@@ -250,7 +254,10 @@ class TestSpecAnalyzerExtractMeta:
     def test_blueprint_metadata(self, florada_blueprint: APIBlueprint):
         assert florada_blueprint.api_name == "Florada Payments"
         assert florada_blueprint.spec_version == "1.0.0"
-        assert florada_blueprint.spec_description == "Payment processing platform API. Accept payments, manage customers, subscriptions, and disputes."
+        assert (
+            florada_blueprint.spec_description
+            == "Payment processing platform API. Accept payments, manage customers, subscriptions, and disputes."
+        )
         assert florada_blueprint.base_url == "https://api.florada.dev/v1"
         assert florada_blueprint.server_urls == [
             "https://api.florada.dev/v1",

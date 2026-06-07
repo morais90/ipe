@@ -82,7 +82,9 @@ class SpecAnalyzer:
             path, method, operation_spec, path_item
         )
 
-        body_schema = self._synthesize_body_schema(operation_spec, operation.operation_id)
+        body_schema = self._synthesize_body_schema(
+            operation_spec, operation.operation_id
+        )
 
         if body_schema is not None and operation.request_body is not None:
             operation.request_body.model_names = [body_schema.name]

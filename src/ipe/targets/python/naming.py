@@ -1,4 +1,3 @@
-
 import keyword
 
 from ipe.utils.naming import to_pascal_case, to_snake_case

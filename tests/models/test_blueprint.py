@@ -69,12 +69,8 @@ def full_blueprint() -> APIBlueprint:
                 name="Pet",
                 description="A pet",
                 properties=[
-                    StandardProperty(
-                        name="id", schema_type="integer", required=True
-                    ),
-                    StandardProperty(
-                        name="name", schema_type="string", required=True
-                    ),
+                    StandardProperty(name="id", schema_type="integer", required=True),
+                    StandardProperty(name="name", schema_type="string", required=True),
                     StandardProperty(
                         name="status",
                         schema_type="string",

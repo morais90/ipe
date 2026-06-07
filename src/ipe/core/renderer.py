@@ -120,11 +120,17 @@ class TemplateTreeRenderer:
         template = env.get_template(str(relative))
         written: list[Path] = []
 
-        items = collection.items() if isinstance(collection, dict) else enumerate(collection)
+        items = (
+            collection.items()
+            if isinstance(collection, dict)
+            else enumerate(collection)
+        )
 
         for key, item in items:
             if isinstance(item, dict):
-                item_name = self._target.naming.module_name(item.get(attr_name, str(key)))
+                item_name = self._target.naming.module_name(
+                    item.get(attr_name, str(key))
+                )
             else:
                 item_name = self._target.naming.module_name(str(key))
 
