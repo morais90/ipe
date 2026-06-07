@@ -110,6 +110,16 @@ Never reference the current PR, ticket, or change. Comments rot; PR descriptions
 - No wildcards.
 - Sort within group.
 
+## New Fields Get Tests
+
+When adding a new field to a Pydantic model (`StandardProperty`, `Response`, `RequestBody`, etc.), add at least one test that creates a scenario where the field is **populated with a non-default value** and asserts the populated state.
+
+Adjusting an existing test to include the new field with its default (`None`, `[]`) is **not enough** — that only verifies the field exists, not that the extraction logic works.
+
+Example: adding `validation_rules` to `StandardProperty` requires a test where a schema has `minLength`, `maxLength`, etc. and the assertion verifies the rules came through.
+
+If the field comes from spec parsing, the canonical place is a focused unit test on the `from_*` classmethod (`StandardProperty.from_schema`, `StandardParameter.from_parameter`, etc.) using a minimal synthetic schema.
+
 ## When You Catch Yourself...
 
 - Writing a docstring on a module → delete it.
@@ -118,5 +128,6 @@ Never reference the current PR, ticket, or change. Comments rot; PR descriptions
 - Cramming 6 statements without blank lines → add vertical separation between logical phases.
 - Naming variables `x`, `s`, `n` → rename to describe intent.
 - Inlining a 10-line block with mixed concerns → extract a helper.
+- Adding a Pydantic field without a test that populates it → write the test in the same change.
 
 If you skip any of these, the canary dies. (See root CLAUDE.md.)
