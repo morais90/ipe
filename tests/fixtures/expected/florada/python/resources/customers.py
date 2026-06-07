@@ -3,6 +3,7 @@ from __future__ import annotations
 from uuid import UUID
 
 import httpx
+from florada_payments.exceptions import validated
 from florada_payments.models.create_customer_request import CreateCustomerRequest
 from florada_payments.models.customer import Customer
 from florada_payments.models.customer_list import CustomerList
@@ -14,6 +15,7 @@ class CustomersResource:
     def __init__(self, client: httpx.Client) -> None:
         self._client = client
 
+    @validated
     def list_customers(
         self,
         email: str | None = None,
@@ -40,6 +42,7 @@ class CustomersResource:
         response.raise_for_status()
         return CustomerList.model_validate(response.json())
 
+    @validated
     def create_customer(
         self,
         body: CreateCustomerRequest,
@@ -54,6 +57,7 @@ class CustomersResource:
         response.raise_for_status()
         return Customer.model_validate(response.json())
 
+    @validated
     def get_customer(
         self,
         customer_id: UUID,
@@ -71,6 +75,7 @@ class CustomersResource:
         response.raise_for_status()
         return Customer.model_validate(response.json())
 
+    @validated
     def update_customer(
         self,
         customer_id: UUID,
@@ -92,6 +97,7 @@ class CustomersResource:
         response.raise_for_status()
         return Customer.model_validate(response.json())
 
+    @validated
     def delete_customer(
         self,
         customer_id: UUID,
@@ -112,6 +118,7 @@ class CustomersResource:
         response.raise_for_status()
         return None
 
+    @validated
     def patch_customer(
         self,
         customer_id: UUID,

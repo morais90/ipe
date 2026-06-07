@@ -3,6 +3,7 @@ from __future__ import annotations
 from uuid import UUID
 
 import httpx
+from florada_payments.exceptions import validated
 from florada_payments.models.create_refund_request import CreateRefundRequest
 from florada_payments.models.refund import Refund
 
@@ -11,6 +12,7 @@ class ChargesRefundsResource:
     def __init__(self, client: httpx.Client) -> None:
         self._client = client
 
+    @validated
     def list_charge_refunds(
         self,
         charge_id: UUID,
@@ -28,6 +30,7 @@ class ChargesRefundsResource:
         response.raise_for_status()
         return [Refund.model_validate(item) for item in response.json()]
 
+    @validated
     def create_refund(
         self,
         charge_id: UUID,

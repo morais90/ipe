@@ -18,12 +18,12 @@ class {{ model.name | class_name }}(BaseModel):
 {% endif %}
 {% for prop in model.properties %}
 {% if prop.required and not prop.nullable %}
-    {{ prop.name | field_name }}: {{ prop.schema_type | resolve_type(prop.schema_format) }}
+    {{ prop.name | field_name }}: {{ prop | field_type }}
 {% elif prop.required and prop.nullable %}
-    {{ prop.name | field_name }}: {{ prop.schema_type | resolve_type(prop.schema_format) }} | None
+    {{ prop.name | field_name }}: {{ prop | field_type }} | None
 {% elif prop.default is not none %}
-    {{ prop.name | field_name }}: {{ prop.schema_type | resolve_type(prop.schema_format) }}{% if prop.nullable %} | None{% endif %} = {{ prop.default | pyval }}
+    {{ prop.name | field_name }}: {{ prop | field_type }}{% if prop.nullable %} | None{% endif %} = {{ prop.default | pyval }}
 {% else %}
-    {{ prop.name | field_name }}: {{ prop.schema_type | resolve_type(prop.schema_format) }} | None = None
+    {{ prop.name | field_name }}: {{ prop | field_type }} | None = None
 {% endif %}
 {% endfor %}

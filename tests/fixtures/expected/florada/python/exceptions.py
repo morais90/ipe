@@ -1,3 +1,13 @@
+from __future__ import annotations
+
+from collections.abc import Callable
+from functools import wraps
+from typing import Any
+
+from pydantic import ValidationError as _PydanticValidationError
+from pydantic import validate_call
+
+
 class FloradaPaymentsError(Exception):
     """Base exception for Florada Payments API errors."""
 
@@ -33,7 +43,19 @@ class ConflictError(FloradaPaymentsError):
 
 
 class ValidationError(FloradaPaymentsError):
-    pass
+    """Raised when client-side or server-side input validation fails."""
+
+    def __init__(
+        self,
+        message: str,
+        field: str | None = None,
+        value: object | None = None,
+        status_code: int | None = None,
+        response: object | None = None,
+    ) -> None:
+        super().__init__(message, status_code=status_code, response=response)
+        self.field = field
+        self.value = value
 
 
 class RateLimitError(FloradaPaymentsError):
@@ -42,3 +64,25 @@ class RateLimitError(FloradaPaymentsError):
 
 class InternalServerError(FloradaPaymentsError):
     pass
+
+
+def validated[F: Callable[..., Any]](func: F) -> F:
+    """Decorator that validates arguments via Pydantic and surfaces failures
+    as ValidationError with minimal context.
+    """
+    inner = validate_call(func)
+
+    @wraps(func)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        try:
+            return inner(*args, **kwargs)
+        except _PydanticValidationError as exc:
+            err = exc.errors()[0]
+            field = ".".join(str(part) for part in err["loc"]) or None
+            raise ValidationError(
+                err["msg"],
+                field=field,
+                value=err.get("input"),
+            ) from exc
+
+    return wrapper  # type: ignore[return-value]

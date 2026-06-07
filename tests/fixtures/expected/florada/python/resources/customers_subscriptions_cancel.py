@@ -3,6 +3,7 @@ from __future__ import annotations
 from uuid import UUID
 
 import httpx
+from florada_payments.exceptions import validated
 from florada_payments.models.cancel_subscription_request import (
     CancelSubscriptionRequest,
 )
@@ -13,6 +14,7 @@ class CustomersSubscriptionsCancelResource:
     def __init__(self, client: httpx.Client) -> None:
         self._client = client
 
+    @validated
     def cancel_subscription(
         self,
         customer_id: UUID,

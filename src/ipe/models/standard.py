@@ -62,6 +62,7 @@ class StandardProperty(BaseModel):
     nullable: bool = False
     default: Any | None = None
     enum_values: list[Any] | None = None
+    validation_rules: list[ValidationRule] = Field(default_factory=list)
 
     @classmethod
     def from_schema(
@@ -75,7 +76,8 @@ class StandardProperty(BaseModel):
             required=name in required_fields,
             nullable=_is_nullable(schema),
             default=schema.default,
-            enum_values=schema.enum,
+            enum_values=_extract_enum_values(schema),
+            validation_rules=ValidationRule.from_schema(schema),
         )
 
 
@@ -114,6 +116,8 @@ class StandardParameter(BaseModel):
     description: str | None = None
     schema_format: str | None = None
     default: Any | None = None
+    enum_values: list[Any] | None = None
+    validation_rules: list[ValidationRule] = Field(default_factory=list)
 
     @classmethod
     def from_parameter(cls, param: openapi.Parameter) -> StandardParameter:
@@ -126,6 +130,8 @@ class StandardParameter(BaseModel):
             description=param.description,
             schema_format=schema.format,
             default=schema.default,
+            enum_values=_extract_enum_values(schema),
+            validation_rules=ValidationRule.from_schema(schema),
         )
 
 
@@ -300,6 +306,16 @@ def _is_nullable(schema: openapi.Schema) -> bool:
     if schema.nullable is True:
         return True
     return isinstance(schema.type, list) and "null" in schema.type
+
+
+def _extract_enum_values(schema: openapi.Schema) -> list[Any] | None:
+    if schema.enum:
+        return schema.enum
+
+    if schema.const is not None:
+        return [schema.const]
+
+    return None
 
 
 _PRIMITIVE_TYPES = frozenset({"string", "integer", "number", "boolean"})

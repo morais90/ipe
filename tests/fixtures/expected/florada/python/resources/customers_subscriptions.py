@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from typing import Literal
 from uuid import UUID
 
 import httpx
+from florada_payments.exceptions import validated
 from florada_payments.models.create_subscription_request import (
     CreateSubscriptionRequest,
 )
@@ -13,10 +15,11 @@ class CustomersSubscriptionsResource:
     def __init__(self, client: httpx.Client) -> None:
         self._client = client
 
+    @validated
     def list_subscriptions(
         self,
         customer_id: UUID,
-        status: str | None = None,
+        status: Literal["active", "past_due", "cancelled", "trialing"] | None = None,
     ) -> list[Subscription]:
         """List subscriptions for a customer
 
@@ -35,6 +38,7 @@ class CustomersSubscriptionsResource:
         response.raise_for_status()
         return [Subscription.model_validate(item) for item in response.json()]
 
+    @validated
     def create_subscription(
         self,
         customer_id: UUID,

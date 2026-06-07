@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from typing import Literal
 from uuid import UUID
 
 import httpx
+from florada_payments.exceptions import validated
 from florada_payments.models.attach_payment_method_request import (
     AttachPaymentMethodRequest,
 )
@@ -13,10 +15,11 @@ class CustomersPaymentMethodsResource:
     def __init__(self, client: httpx.Client) -> None:
         self._client = client
 
+    @validated
     def list_payment_methods(
         self,
         customer_id: UUID,
-        type_: str | None = None,
+        type_: Literal["card", "pix", "boleto"] | None = None,
     ) -> list[PaymentMethod]:
         """List payment methods for a customer
 
@@ -35,6 +38,7 @@ class CustomersPaymentMethodsResource:
         response.raise_for_status()
         return [PaymentMethod.model_validate(item) for item in response.json()]
 
+    @validated
     def attach_payment_method(
         self,
         customer_id: UUID,
@@ -54,6 +58,7 @@ class CustomersPaymentMethodsResource:
         response.raise_for_status()
         return PaymentMethod.model_validate(response.json())
 
+    @validated
     def detach_payment_method(
         self,
         customer_id: UUID,

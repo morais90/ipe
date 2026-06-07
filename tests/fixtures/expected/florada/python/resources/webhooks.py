@@ -3,6 +3,7 @@ from __future__ import annotations
 from uuid import UUID
 
 import httpx
+from florada_payments.exceptions import validated
 from florada_payments.models.create_webhook_request import CreateWebhookRequest
 from florada_payments.models.webhook_endpoint import WebhookEndpoint
 
@@ -11,6 +12,7 @@ class WebhooksResource:
     def __init__(self, client: httpx.Client) -> None:
         self._client = client
 
+    @validated
     def list_webhooks(
         self,
     ) -> list[WebhookEndpoint]:
@@ -23,6 +25,7 @@ class WebhooksResource:
         response.raise_for_status()
         return [WebhookEndpoint.model_validate(item) for item in response.json()]
 
+    @validated
     def create_webhook(
         self,
         body: CreateWebhookRequest,
@@ -37,6 +40,7 @@ class WebhooksResource:
         response.raise_for_status()
         return WebhookEndpoint.model_validate(response.json())
 
+    @validated
     def delete_webhook(
         self,
         webhook_id: UUID,

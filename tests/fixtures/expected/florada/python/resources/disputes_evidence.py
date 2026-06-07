@@ -3,6 +3,7 @@ from __future__ import annotations
 from uuid import UUID
 
 import httpx
+from florada_payments.exceptions import validated
 from florada_payments.models.dispute import Dispute
 from florada_payments.models.dispute_evidence import DisputeEvidence
 
@@ -11,6 +12,7 @@ class DisputesEvidenceResource:
     def __init__(self, client: httpx.Client) -> None:
         self._client = client
 
+    @validated
     def submit_dispute_evidence(
         self,
         dispute_id: UUID,

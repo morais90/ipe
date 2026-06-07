@@ -1,25 +1,30 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Annotated, Literal
 from uuid import UUID
 
 import httpx
+from florada_payments.exceptions import validated
 from florada_payments.models.charge import Charge
 from florada_payments.models.charge_list import ChargeList
 from florada_payments.models.create_charge_request import CreateChargeRequest
+from pydantic import Field
 
 
 class ChargesResource:
     def __init__(self, client: httpx.Client) -> None:
         self._client = client
 
+    @validated
     def list_charges(
         self,
-        status: str | None = None,
+        status: Literal["pending", "succeeded", "failed", "refunded", "disputed"]
+        | None = None,
         customer_id: UUID | None = None,
         created_after: datetime | None = None,
         created_before: datetime | None = None,
-        limit: int | None = 20,
+        limit: Annotated[int, Field(ge=1, le=100)] | None = 20,
         cursor: str | None = None,
     ) -> ChargeList:
         """List charges
@@ -51,6 +56,7 @@ class ChargesResource:
         response.raise_for_status()
         return ChargeList.model_validate(response.json())
 
+    @validated
     def create_charge(
         self,
         body: CreateChargeRequest,
@@ -70,6 +76,7 @@ class ChargesResource:
         response.raise_for_status()
         return Charge.model_validate(response.json())
 
+    @validated
     def get_charge(
         self,
         charge_id: UUID,

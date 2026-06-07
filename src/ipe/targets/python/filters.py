@@ -13,6 +13,9 @@ _IMPORTABLE_TYPES: dict[str, tuple[str, str]] = {
     "datetime": ("datetime", "datetime"),
     "date": ("datetime", "date"),
     "Any": ("typing", "Any"),
+    "Annotated": ("typing", "Annotated"),
+    "Literal": ("typing", "Literal"),
+    "Field": ("pydantic", "Field"),
 }
 
 _SUCCESS_STATUSES = ("200", "201", "202", "203", "204")
@@ -113,38 +116,46 @@ def response_deserialize(target: LanguageTarget, success: dict[str, Any] | None)
 
 
 def type_imports(target: LanguageTarget, properties: list[dict[str, Any]]) -> str:
-    pairs = [(p.get("schema_type", ""), p.get("schema_format")) for p in properties]
-    return _compute_imports(target, pairs)
+    tokens = _collect_field_tokens(target, properties)
+    return _build_imports_from_tokens(tokens)
 
 
 def param_type_imports(target: LanguageTarget, operations: list[dict[str, Any]]) -> str:
-    pairs = [
-        (p.get("schema_type", ""), p.get("schema_format"))
-        for op in operations
-        for p in op.get("parameters", [])
-    ]
-    pairs.extend(_inline_body_pairs(operations))
+    params = [p for op in operations for p in op.get("parameters", [])]
+    tokens = _collect_field_tokens(target, params)
 
-    return _compute_imports(target, pairs)
+    for body_type in _inline_body_types(target, operations):
+        tokens.update(_IDENTIFIER.findall(body_type))
+
+    return _build_imports_from_tokens(tokens)
 
 
-def _inline_body_pairs(
+def _collect_field_tokens(
+    target: LanguageTarget,
+    fields: list[dict[str, Any]],
+) -> set[str]:
+    tokens: set[str] = set()
+
+    for field in fields:
+        tokens.update(_IDENTIFIER.findall(field_type(target, field)))
+
+    return tokens
+
+
+def _inline_body_types(
+    target: LanguageTarget,
     operations: list[dict[str, Any]],
-) -> list[tuple[str, str | None]]:
-    pairs: list[tuple[str, str | None]] = []
+) -> list[str]:
+    rendered: list[str] = []
 
     for op in operations:
         body = op.get("request_body")
-        if not body:
+        if not body or body.get("model_names"):
             continue
 
-        if body.get("model_names"):
-            continue
+        rendered.append(body_type(target, body))
 
-        primitive = body.get("primitive_type")
-        pairs.append((primitive, None) if primitive else ("object", None))
-
-    return pairs
+    return rendered
 
 
 def resource_imports(
@@ -156,8 +167,13 @@ def resource_imports(
         param_type_imports(target, operations),
         _response_imports_block(target, operations, module_name),
         _body_imports_block(target, operations, module_name),
+        _validation_import(module_name),
     ]
     return "\n\n".join(s for s in sections if s)
+
+
+def _validation_import(module_name: str) -> str:
+    return f"from {module_name}.exceptions import validated"
 
 
 def _body_imports_block(
@@ -258,18 +274,9 @@ def _model_import_lines(
     ]
 
 
-def _compute_imports(
-    target: LanguageTarget,
-    pairs: list[tuple[str, str | None]],
-    always: set[str] | None = None,
-) -> str:
-    tokens: set[str] = set(always or set())
-
-    for schema_type, schema_format in pairs:
-        resolved = target.resolve_type(schema_type, schema_format)
-        tokens.update(_IDENTIFIER.findall(resolved))
-
+def _build_imports_from_tokens(tokens: set[str]) -> str:
     modules: dict[str, set[str]] = {}
+
     for type_name, (module, name) in _IMPORTABLE_TYPES.items():
         if type_name in tokens:
             modules.setdefault(module, set()).add(name)
@@ -277,11 +284,10 @@ def _compute_imports(
     if not modules:
         return ""
 
-    lines = [
+    return "\n".join(
         f"from {module} import {', '.join(sorted(names))}"
         for module, names in sorted(modules.items())
-    ]
-    return "\n".join(lines)
+    )
 
 
 _CONTENT_TYPE_KWARG = {
@@ -331,3 +337,58 @@ def body_call_arg(body: dict[str, Any] | None) -> str:
         return f'{kwarg}=[item.model_dump(mode="json") for item in body]'
 
     return f'{kwarg}=body.model_dump(mode="json")'
+
+
+_RULE_TO_FIELD_ARG: dict[str, str] = {
+    "min_length": "min_length",
+    "max_length": "max_length",
+    "pattern": "pattern",
+    "minimum": "ge",
+    "maximum": "le",
+    "exclusive_minimum": "gt",
+    "exclusive_maximum": "lt",
+    "min_items": "min_length",
+    "max_items": "max_length",
+    "multiple_of": "multiple_of",
+}
+
+
+def field_type(target: LanguageTarget, prop: dict[str, Any]) -> str:
+    base = _resolve_base_type(target, prop)
+    args = _field_args(prop.get("validation_rules") or [])
+
+    if not args:
+        return base
+
+    return f"Annotated[{base}, Field({args})]"
+
+
+def _resolve_base_type(target: LanguageTarget, prop: dict[str, Any]) -> str:
+    enum_values = prop.get("enum_values")
+
+    if enum_values:
+        rendered = ", ".join(repr(v) for v in enum_values)
+        return f"Literal[{rendered}]"
+
+    return target.resolve_type(prop.get("schema_type", ""), prop.get("schema_format"))
+
+
+def _field_args(rules: list[dict[str, Any]]) -> str:
+    parts: list[str] = []
+
+    for rule in rules:
+        arg_name = _RULE_TO_FIELD_ARG.get(rule.get("rule_type", ""))
+        if arg_name is None:
+            continue
+
+        value = _normalize_numeric(rule.get("value"))
+        parts.append(f"{arg_name}={value!r}")
+
+    return ", ".join(parts)
+
+
+def _normalize_numeric(value: Any) -> Any:
+    if isinstance(value, float) and value.is_integer():
+        return int(value)
+
+    return value

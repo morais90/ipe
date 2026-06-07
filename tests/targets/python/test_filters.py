@@ -261,7 +261,9 @@ class TestResourceImportsFilter:
         assert result == (
             "from uuid import UUID\n"
             "\n"
-            "from florada_payments.models.charge import Charge"
+            "from florada_payments.models.charge import Charge\n"
+            "\n"
+            "from florada_payments.exceptions import validated"
         )
 
     def test_adds_type_adapter_for_union(
@@ -286,7 +288,9 @@ class TestResourceImportsFilter:
         assert result == (
             "from pydantic import TypeAdapter\n"
             "from api.models.a import A\n"
-            "from api.models.b import B"
+            "from api.models.b import B\n"
+            "\n"
+            "from api.exceptions import validated"
         )
 
     def test_adds_annotated_field_for_discriminator(
@@ -316,5 +320,101 @@ class TestResourceImportsFilter:
             "from typing import Annotated\n"
             "from pydantic import Field, TypeAdapter\n"
             "from api.models.a import A\n"
-            "from api.models.b import B"
+            "from api.models.b import B\n"
+            "\n"
+            "from api.exceptions import validated"
         )
+
+
+class TestFieldTypeFilter:
+    def test_plain_type_no_constraints(self, template_dir: Path, output_dir: Path):
+        prop = {"schema_type": "string", "schema_format": None}
+
+        result = render(
+            template_dir,
+            output_dir,
+            "{{ prop | field_type }}",
+            {"prop": prop},
+        )
+
+        assert result == "str"
+
+    def test_enum_becomes_literal(self, template_dir: Path, output_dir: Path):
+        prop = {
+            "schema_type": "string",
+            "schema_format": None,
+            "enum_values": ["pending", "succeeded", "failed"],
+        }
+
+        result = render(
+            template_dir,
+            output_dir,
+            "{{ prop | field_type }}",
+            {"prop": prop},
+        )
+
+        assert result == "Literal['pending', 'succeeded', 'failed']"
+
+    def test_string_constraints_become_annotated(
+        self, template_dir: Path, output_dir: Path
+    ):
+        prop = {
+            "schema_type": "string",
+            "schema_format": None,
+            "validation_rules": [
+                {"rule_type": "min_length", "value": 3},
+                {"rule_type": "max_length", "value": 64},
+                {"rule_type": "pattern", "value": "^[a-z]+$"},
+            ],
+        }
+
+        result = render(
+            template_dir,
+            output_dir,
+            "{{ prop | field_type }}",
+            {"prop": prop},
+        )
+
+        assert result == (
+            "Annotated[str, Field("
+            "min_length=3, max_length=64, pattern='^[a-z]+$'"
+            ")]"
+        )
+
+    def test_numeric_bounds_map_to_ge_le(
+        self, template_dir: Path, output_dir: Path
+    ):
+        prop = {
+            "schema_type": "integer",
+            "schema_format": None,
+            "validation_rules": [
+                {"rule_type": "minimum", "value": 1},
+                {"rule_type": "maximum", "value": 100},
+            ],
+        }
+
+        result = render(
+            template_dir,
+            output_dir,
+            "{{ prop | field_type }}",
+            {"prop": prop},
+        )
+
+        assert result == "Annotated[int, Field(ge=1, le=100)]"
+
+    def test_enum_with_constraints(self, template_dir: Path, output_dir: Path):
+        prop = {
+            "schema_type": "string",
+            "schema_format": None,
+            "enum_values": ["a", "b"],
+            "validation_rules": [{"rule_type": "min_length", "value": 1}],
+        }
+
+        result = render(
+            template_dir,
+            output_dir,
+            "{{ prop | field_type }}",
+            {"prop": prop},
+        )
+
+        assert result == "Annotated[Literal['a', 'b'], Field(min_length=1)]"

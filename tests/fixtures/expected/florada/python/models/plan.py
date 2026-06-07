@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class Plan(BaseModel):
@@ -11,8 +11,8 @@ class Plan(BaseModel):
     name: str
     description: str | None = None
     amount: dict[str, Any]
-    interval: str
-    interval_count: int = 1
-    trial_days: int = 0
+    interval: Literal["daily", "weekly", "monthly", "yearly"]
+    interval_count: Annotated[int, Field(ge=1)] = 1
+    trial_days: Annotated[int, Field(ge=0)] = 0
     active: bool = True
     metadata: dict[str, Any] | None = None

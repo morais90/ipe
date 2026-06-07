@@ -192,6 +192,9 @@ class TestSpecAnalyzerExtractModels:
                     "nullable": False,
                     "default": None,
                     "enum_values": None,
+                    "validation_rules": [
+                        {"rule_type": "minimum", "value": 0.0},
+                    ],
                 },
                 {
                     "name": "currency",
@@ -202,6 +205,11 @@ class TestSpecAnalyzerExtractModels:
                     "nullable": False,
                     "default": None,
                     "enum_values": None,
+                    "validation_rules": [
+                        {"rule_type": "min_length", "value": 3},
+                        {"rule_type": "max_length", "value": 3},
+                        {"rule_type": "pattern", "value": "^[A-Z]{3}$"},
+                    ],
                 },
             ],
             "required_fields": ["amount", "currency"],

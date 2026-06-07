@@ -16,16 +16,17 @@ class {{ item_name | class_name }}Resource:
 {% set has_details = operation.description or has_params %}
 {% set success = operation.responses | success_response %}
 {% set body = operation.request_body %}
+    @validated
     def {{ operation.operation_id | method_name }}(
         self,
 {% for param in path_params %}
-        {{ param.name | field_name }}: {{ param.schema_type | resolve_type(param.schema_format) }},
+        {{ param.name | field_name }}: {{ param | field_type }},
 {% endfor %}
 {% if body %}
         body: {{ body | body_type }}{% if not body.required %} | None = None{% endif %},
 {% endif %}
 {% for param in query_params %}
-        {{ param.name | field_name }}: {{ param.schema_type | resolve_type(param.schema_format) }} | None = {% if param.default is not none %}{{ param.default | pyval }}{% else %}None{% endif %},
+        {{ param.name | field_name }}: {{ param | field_type }} | None = {% if param.default is not none %}{{ param.default | pyval }}{% else %}None{% endif %},
 {% endfor %}
     ) -> {{ success | response_type }}:
 {% if operation.summary and not has_details %}

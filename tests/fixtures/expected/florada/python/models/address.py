@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from pydantic import BaseModel
+from typing import Annotated
+
+from pydantic import BaseModel, Field
 
 
 class Address(BaseModel):
@@ -11,4 +13,4 @@ class Address(BaseModel):
     city: str
     state: str
     postal_code: str
-    country: str
+    country: Annotated[str, Field(min_length=2, max_length=2)]

@@ -157,6 +157,8 @@ class TestAPIBlueprint:
                             "description": None,
                             "schema_format": "int32",
                             "default": None,
+                            "enum_values": None,
+                            "validation_rules": [],
                         },
                     ],
                     "request_body": None,
@@ -188,6 +190,7 @@ class TestAPIBlueprint:
                             "nullable": False,
                             "default": None,
                             "enum_values": None,
+                            "validation_rules": [],
                         },
                         {
                             "name": "name",
@@ -198,6 +201,7 @@ class TestAPIBlueprint:
                             "nullable": False,
                             "default": None,
                             "enum_values": None,
+                            "validation_rules": [],
                         },
                         {
                             "name": "status",
@@ -208,6 +212,7 @@ class TestAPIBlueprint:
                             "nullable": False,
                             "default": None,
                             "enum_values": ["available", "sold"],
+                            "validation_rules": [],
                         },
                     ],
                     "required_fields": ["id", "name"],

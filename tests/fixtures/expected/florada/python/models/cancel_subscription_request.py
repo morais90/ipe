@@ -1,8 +1,10 @@
 from __future__ import annotations
 
-from pydantic import BaseModel
+from typing import Annotated
+
+from pydantic import BaseModel, Field
 
 
 class CancelSubscriptionRequest(BaseModel):
     at_period_end: bool = True
-    reason: str | None = None
+    reason: Annotated[str, Field(max_length=500)] | None = None

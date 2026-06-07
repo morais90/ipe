@@ -1,10 +1,12 @@
 from __future__ import annotations
 
-from pydantic import BaseModel
+from typing import Annotated
+
+from pydantic import BaseModel, Field
 
 
 class DisputeEvidence(BaseModel):
-    description: str | None = None
+    description: Annotated[str, Field(max_length=5000)] | None = None
     receipt_url: str | None = None
     shipping_tracking: str | None = None
     customer_communication: str | None = None

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
-from pydantic import BaseModel
+from typing import Annotated
+
+from pydantic import BaseModel, Field
 
 
 class CreateWebhookRequest(BaseModel):
     url: str
-    events: list
+    events: Annotated[list, Field(min_length=1)]

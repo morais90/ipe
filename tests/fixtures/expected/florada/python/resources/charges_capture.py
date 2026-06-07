@@ -3,6 +3,7 @@ from __future__ import annotations
 from uuid import UUID
 
 import httpx
+from florada_payments.exceptions import validated
 from florada_payments.models.capture_charge_request import CaptureChargeRequest
 from florada_payments.models.charge import Charge
 
@@ -11,6 +12,7 @@ class ChargesCaptureResource:
     def __init__(self, client: httpx.Client) -> None:
         self._client = client
 
+    @validated
     def capture_charge(
         self,
         charge_id: UUID,
