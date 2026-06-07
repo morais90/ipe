@@ -1,5 +1,3 @@
-"""{{ api_name }} API models."""
-
 __all__ = [
 {% for model in models | sort(attribute="name") %}
     "{{ model.name | class_name }}",

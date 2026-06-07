@@ -1,6 +1,3 @@
-"""Florada Payments API exceptions."""
-
-
 class FloradaPaymentsError(Exception):
     """Base exception for Florada Payments API errors."""
 

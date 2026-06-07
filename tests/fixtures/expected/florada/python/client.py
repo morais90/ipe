@@ -1,5 +1,3 @@
-"""Florada Payments API client."""
-
 from __future__ import annotations
 
 import httpx

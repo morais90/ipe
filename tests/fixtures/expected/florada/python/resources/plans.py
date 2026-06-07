@@ -1,5 +1,3 @@
-"""Plans resource."""
-
 from __future__ import annotations
 
 from florada_payments.models.plan import Plan

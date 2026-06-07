@@ -1,5 +1,3 @@
-"""Florada Payments API models."""
-
 __all__ = [
     "Address",
     "AttachPaymentMethodRequest",

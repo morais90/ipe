@@ -1,5 +1,3 @@
-"""Florada Payments API resources."""
-
 from florada_payments.resources.charges import ChargesResource
 from florada_payments.resources.charges_capture import ChargesCaptureResource
 from florada_payments.resources.charges_refunds import ChargesRefundsResource
