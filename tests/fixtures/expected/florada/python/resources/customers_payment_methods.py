@@ -3,6 +3,9 @@ from __future__ import annotations
 from uuid import UUID
 
 import httpx
+from florada_payments.models.attach_payment_method_request import (
+    AttachPaymentMethodRequest,
+)
 from florada_payments.models.payment_method import PaymentMethod
 
 
@@ -35,6 +38,7 @@ class CustomersPaymentMethodsResource:
     def attach_payment_method(
         self,
         customer_id: UUID,
+        body: AttachPaymentMethodRequest,
     ) -> PaymentMethod:
         """Attach a payment method to a customer
 
@@ -45,6 +49,7 @@ class CustomersPaymentMethodsResource:
         response = self._client.request(
             "POST",
             url,
+            json=body.model_dump(mode="json"),
         )
         response.raise_for_status()
         return PaymentMethod.model_validate(response.json())

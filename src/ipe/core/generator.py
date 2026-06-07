@@ -48,13 +48,14 @@ class CodeGenerator:
         resources = target.group(blueprint.operations)
 
         context: dict[str, Any] = {
-            **blueprint.model_dump(exclude={"operations"}),
+            **blueprint.model_dump(exclude={"operations", "body_schemas"}),
             "resources": {
                 target.naming.module_name(name): [
                     operation.model_dump() for operation in operations
                 ]
                 for name, operations in resources.items()
             },
+            "requests": [body.model_dump() for body in blueprint.body_schemas],
         }
 
         report("Rendering templates")

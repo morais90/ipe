@@ -3,6 +3,9 @@ from __future__ import annotations
 from uuid import UUID
 
 import httpx
+from florada_payments.models.cancel_subscription_request import (
+    CancelSubscriptionRequest,
+)
 from florada_payments.models.subscription import Subscription
 
 
@@ -14,6 +17,7 @@ class CustomersSubscriptionsCancelResource:
         self,
         customer_id: UUID,
         subscription_id: UUID,
+        body: CancelSubscriptionRequest | None = None,
     ) -> Subscription:
         """Cancel a subscription
 
@@ -28,6 +32,7 @@ class CustomersSubscriptionsCancelResource:
         response = self._client.request(
             "POST",
             url,
+            json=body.model_dump(mode="json"),
         )
         response.raise_for_status()
         return Subscription.model_validate(response.json())

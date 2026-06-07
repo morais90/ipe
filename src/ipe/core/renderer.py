@@ -16,6 +16,7 @@ _BLANK_LINES = re.compile(r"\n\s*\n\s*\n")
 _SINGULAR: dict[str, str] = {
     "models": "model",
     "resources": "resource",
+    "requests": "model",
 }
 
 

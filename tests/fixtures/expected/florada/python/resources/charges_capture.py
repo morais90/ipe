@@ -3,6 +3,7 @@ from __future__ import annotations
 from uuid import UUID
 
 import httpx
+from florada_payments.models.capture_charge_request import CaptureChargeRequest
 from florada_payments.models.charge import Charge
 
 
@@ -13,6 +14,7 @@ class ChargesCaptureResource:
     def capture_charge(
         self,
         charge_id: UUID,
+        body: CaptureChargeRequest | None = None,
     ) -> Charge:
         """Capture a charge
 
@@ -26,6 +28,7 @@ class ChargesCaptureResource:
         response = self._client.request(
             "POST",
             url,
+            json=body.model_dump(mode="json"),
         )
         response.raise_for_status()
         return Charge.model_validate(response.json())

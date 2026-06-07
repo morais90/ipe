@@ -3,6 +3,9 @@ from __future__ import annotations
 from uuid import UUID
 
 import httpx
+from florada_payments.models.create_subscription_request import (
+    CreateSubscriptionRequest,
+)
 from florada_payments.models.subscription import Subscription
 
 
@@ -35,6 +38,7 @@ class CustomersSubscriptionsResource:
     def create_subscription(
         self,
         customer_id: UUID,
+        body: CreateSubscriptionRequest,
     ) -> Subscription:
         """Create a subscription
 
@@ -48,6 +52,7 @@ class CustomersSubscriptionsResource:
         response = self._client.request(
             "POST",
             url,
+            json=body.model_dump(mode="json"),
         )
         response.raise_for_status()
         return Subscription.model_validate(response.json())

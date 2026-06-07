@@ -15,11 +15,15 @@ class {{ item_name | class_name }}Resource:
 {% set has_params = path_params or query_params %}
 {% set has_details = operation.description or has_params %}
 {% set success = operation.responses | success_response %}
+{% set body = operation.request_body %}
     def {{ operation.operation_id | method_name }}(
         self,
 {% for param in path_params %}
         {{ param.name | field_name }}: {{ param.schema_type | resolve_type(param.schema_format) }},
 {% endfor %}
+{% if body %}
+        body: {{ body | body_type }}{% if not body.required %} | None = None{% endif %},
+{% endif %}
 {% for param in query_params %}
         {{ param.name | field_name }}: {{ param.schema_type | resolve_type(param.schema_format) }} | None = {% if param.default is not none %}{{ param.default | pyval }}{% else %}None{% endif %},
 {% endfor %}
@@ -62,6 +66,9 @@ class {{ item_name | class_name }}Resource:
                 "{{ param.name }}": {{ param.name | field_name }},
 {% endfor %}
             },
+{% endif %}
+{% if body %}
+            {{ body | body_call_arg }},
 {% endif %}
         )
         response.raise_for_status()

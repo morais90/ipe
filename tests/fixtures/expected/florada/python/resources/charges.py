@@ -6,6 +6,7 @@ from uuid import UUID
 import httpx
 from florada_payments.models.charge import Charge
 from florada_payments.models.charge_list import ChargeList
+from florada_payments.models.create_charge_request import CreateChargeRequest
 
 
 class ChargesResource:
@@ -52,6 +53,7 @@ class ChargesResource:
 
     def create_charge(
         self,
+        body: CreateChargeRequest,
     ) -> Charge:
         """Create a charge
 
@@ -63,6 +65,7 @@ class ChargesResource:
         response = self._client.request(
             "POST",
             url,
+            json=body.model_dump(mode="json"),
         )
         response.raise_for_status()
         return Charge.model_validate(response.json())

@@ -20,6 +20,7 @@ class APIBlueprint(BaseModel):
 
     operations: list[StandardOperation]
     models: list[StandardModel]
+    body_schemas: list[StandardModel] = Field(default_factory=list)
     auth_schemes: list[AuthScheme]
 
     module_name: str

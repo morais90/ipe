@@ -123,7 +123,28 @@ def param_type_imports(target: LanguageTarget, operations: list[dict[str, Any]])
         for op in operations
         for p in op.get("parameters", [])
     ]
+    pairs.extend(_inline_body_pairs(operations))
+
     return _compute_imports(target, pairs)
+
+
+def _inline_body_pairs(
+    operations: list[dict[str, Any]],
+) -> list[tuple[str, str | None]]:
+    pairs: list[tuple[str, str | None]] = []
+
+    for op in operations:
+        body = op.get("request_body")
+        if not body:
+            continue
+
+        if body.get("model_names"):
+            continue
+
+        primitive = body.get("primitive_type")
+        pairs.append((primitive, None) if primitive else ("object", None))
+
+    return pairs
 
 
 def resource_imports(
@@ -134,8 +155,46 @@ def resource_imports(
     sections = [
         param_type_imports(target, operations),
         _response_imports_block(target, operations, module_name),
+        _body_imports_block(target, operations, module_name),
     ]
     return "\n\n".join(s for s in sections if s)
+
+
+def _body_imports_block(
+    target: LanguageTarget,
+    operations: list[dict[str, Any]],
+    module_name: str,
+) -> str:
+    domain_models, request_models = _scan_body_needs(operations)
+
+    lines: list[str] = []
+    lines.extend(_model_import_lines(target, domain_models, module_name, "models"))
+    lines.extend(
+        _model_import_lines(target, request_models, module_name, "models.requests")
+    )
+
+    return "\n".join(lines)
+
+
+def _scan_body_needs(
+    operations: list[dict[str, Any]],
+) -> tuple[set[str], set[str]]:
+    domain_models: set[str] = set()
+    request_models: set[str] = set()
+
+    for op in operations:
+        body = op.get("request_body")
+        if not body:
+            continue
+
+        model_names = body.get("model_names") or []
+        if not model_names:
+            continue
+
+        bucket = request_models if body.get("is_inline_object") else domain_models
+        bucket.update(model_names)
+
+    return domain_models, request_models
 
 
 def _response_imports_block(
@@ -190,10 +249,11 @@ def _model_import_lines(
     target: LanguageTarget,
     models: set[str],
     module_name: str,
+    sub_path: str = "models",
 ) -> list[str]:
     naming = target.naming
     return [
-        f"from {module_name}.models.{naming.module_name(m)} import {naming.class_name(m)}"
+        f"from {module_name}.{sub_path}.{naming.module_name(m)} import {naming.class_name(m)}"
         for m in sorted(models)
     ]
 
@@ -222,3 +282,52 @@ def _compute_imports(
         for module, names in sorted(modules.items())
     ]
     return "\n".join(lines)
+
+
+_CONTENT_TYPE_KWARG = {
+    "application/json": "json",
+    "application/x-www-form-urlencoded": "data",
+    "multipart/form-data": "files",
+}
+
+
+def body_type(target: LanguageTarget, body: dict[str, Any] | None) -> str:
+    if not body:
+        return "None"
+
+    models = body.get("model_names") or []
+
+    if not models:
+        return _render_bodyless_type(target, body)
+
+    rendered = [target.naming.class_name(m) for m in models]
+    base = " | ".join(rendered) if len(rendered) > 1 else rendered[0]
+
+    return f"list[{base}]" if body.get("is_list") else base
+
+
+def _render_bodyless_type(target: LanguageTarget, body: dict[str, Any]) -> str:
+    if body.get("is_inline_object"):
+        return "dict[str, Any]"
+
+    primitive = body.get("primitive_type")
+    if primitive:
+        return target.resolve_type(primitive, None)
+
+    return "dict[str, Any]"
+
+
+def body_call_arg(body: dict[str, Any] | None) -> str:
+    if not body:
+        return ""
+
+    kwarg = _CONTENT_TYPE_KWARG.get(body.get("content_type") or "", "content")
+    models = body.get("model_names") or []
+
+    if not models:
+        return f"{kwarg}=body"
+
+    if body.get("is_list"):
+        return f'{kwarg}=[item.model_dump(mode="json") for item in body]'
+
+    return f'{kwarg}=body.model_dump(mode="json")'

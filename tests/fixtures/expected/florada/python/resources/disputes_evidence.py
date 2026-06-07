@@ -4,6 +4,7 @@ from uuid import UUID
 
 import httpx
 from florada_payments.models.dispute import Dispute
+from florada_payments.models.dispute_evidence import DisputeEvidence
 
 
 class DisputesEvidenceResource:
@@ -13,6 +14,7 @@ class DisputesEvidenceResource:
     def submit_dispute_evidence(
         self,
         dispute_id: UUID,
+        body: DisputeEvidence,
     ) -> Dispute:
         """Submit dispute evidence
 
@@ -26,6 +28,7 @@ class DisputesEvidenceResource:
         response = self._client.request(
             "POST",
             url,
+            json=body.model_dump(mode="json"),
         )
         response.raise_for_status()
         return Dispute.model_validate(response.json())

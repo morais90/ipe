@@ -131,10 +131,13 @@ class StandardParameter(BaseModel):
 
 class RequestBody(BaseModel):
     required: bool
-    content_types: list[str]
-    schema_type: str
+    content_type: str | None = None
+    model_names: list[str] = Field(default_factory=list)
+    is_list: bool = False
+    discriminator: str | None = None
+    primitive_type: str | None = None
+    is_inline_object: bool = False
     description: str | None = None
-    schema_format: str | None = None
 
     @classmethod
     def from_request_body(
@@ -143,16 +146,22 @@ class RequestBody(BaseModel):
         if not body.content:
             return None
 
-        content_types = list(body.content.keys())
-        first_media = body.content[content_types[0]]
-        schema = first_media.schema_ or openapi.Schema()
+        content_type = next(iter(body.content))
+        schema = body.content[content_type].schema_
+        shape = _classify_schema(schema)
+
+        if _is_empty_shape(shape):
+            return None
 
         return cls(
             required=body.required,
-            content_types=content_types,
-            schema_type=_resolve_type(schema),
+            content_type=content_type,
+            model_names=shape.model_names,
+            is_list=shape.is_list,
+            discriminator=shape.discriminator,
+            primitive_type=shape.primitive_type,
+            is_inline_object=shape.is_inline_object,
             description=body.description,
-            schema_format=schema.format,
         )
 
 
@@ -174,7 +183,7 @@ class Response(BaseModel):
         if content_type and resp.content:
             schema = resp.content[content_type].schema_
 
-        shape = _classify_response_schema(schema)
+        shape = _classify_schema(schema)
         return cls(
             status_code=status_code,
             description=resp.description,
@@ -296,20 +305,21 @@ def _is_nullable(schema: openapi.Schema) -> bool:
 _PRIMITIVE_TYPES = frozenset({"string", "integer", "number", "boolean"})
 
 
-class _ResponseShape(BaseModel):
+class _SchemaShape(BaseModel):
     model_names: list[str] = Field(default_factory=list)
     is_list: bool = False
     discriminator: str | None = None
     primitive_type: str | None = None
+    is_inline_object: bool = False
 
 
-def _classify_response_schema(schema: openapi.Schema | None) -> _ResponseShape:
+def _classify_schema(schema: openapi.Schema | None) -> _SchemaShape:  # noqa: PLR0911
     if schema is None:
-        return _ResponseShape()
+        return _SchemaShape()
 
     if schema.ref:
         name = _name_from_ref(schema.ref)
-        return _ResponseShape(model_names=[name] if name else [])
+        return _SchemaShape(model_names=[name] if name else [])
 
     union_schemas = schema.one_of or schema.any_of
     if union_schemas:
@@ -318,11 +328,11 @@ def _classify_response_schema(schema: openapi.Schema | None) -> _ResponseShape:
             discriminator = (
                 schema.discriminator.property_name if schema.discriminator else None
             )
-            return _ResponseShape(model_names=model_names, discriminator=discriminator)
+            return _SchemaShape(model_names=model_names, discriminator=discriminator)
 
     if schema.type == "array" and schema.items is not None:
-        nested = _classify_response_schema(schema.items)
-        return _ResponseShape(
+        nested = _classify_schema(schema.items)
+        return _SchemaShape(
             model_names=nested.model_names,
             is_list=True,
             discriminator=nested.discriminator,
@@ -330,9 +340,25 @@ def _classify_response_schema(schema: openapi.Schema | None) -> _ResponseShape:
         )
 
     if isinstance(schema.type, str) and schema.type in _PRIMITIVE_TYPES:
-        return _ResponseShape(primitive_type=schema.type)
+        return _SchemaShape(primitive_type=schema.type)
 
-    return _ResponseShape()
+    if _is_inline_object(schema):
+        return _SchemaShape(is_inline_object=True)
+
+    return _SchemaShape()
+
+
+def _is_inline_object(schema: openapi.Schema) -> bool:
+    has_object_type = schema.type == "object" or schema.type is None
+    return has_object_type and bool(schema.properties)
+
+
+def _is_empty_shape(shape: _SchemaShape) -> bool:
+    return (
+        not shape.model_names
+        and not shape.primitive_type
+        and not shape.is_inline_object
+    )
 
 
 def _name_from_ref(ref: str) -> str | None:

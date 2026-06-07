@@ -3,6 +3,7 @@ from __future__ import annotations
 from uuid import UUID
 
 import httpx
+from florada_payments.models.create_refund_request import CreateRefundRequest
 from florada_payments.models.refund import Refund
 
 
@@ -30,6 +31,7 @@ class ChargesRefundsResource:
     def create_refund(
         self,
         charge_id: UUID,
+        body: CreateRefundRequest,
     ) -> Refund:
         """Create a refund
 
@@ -43,6 +45,7 @@ class ChargesRefundsResource:
         response = self._client.request(
             "POST",
             url,
+            json=body.model_dump(mode="json"),
         )
         response.raise_for_status()
         return Refund.model_validate(response.json())

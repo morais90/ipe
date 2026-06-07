@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import httpx
+from florada_payments.models.create_plan_request import CreatePlanRequest
 from florada_payments.models.plan import Plan
 
 
@@ -30,12 +31,14 @@ class PlansResource:
 
     def create_plan(
         self,
+        body: CreatePlanRequest,
     ) -> Plan:
         """Create a plan"""
         url = "/plans"
         response = self._client.request(
             "POST",
             url,
+            json=body.model_dump(mode="json"),
         )
         response.raise_for_status()
         return Plan.model_validate(response.json())

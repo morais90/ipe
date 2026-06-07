@@ -3,8 +3,11 @@ from __future__ import annotations
 from uuid import UUID
 
 import httpx
+from florada_payments.models.create_customer_request import CreateCustomerRequest
 from florada_payments.models.customer import Customer
 from florada_payments.models.customer_list import CustomerList
+from florada_payments.models.patch_customer_request import PatchCustomerRequest
+from florada_payments.models.update_customer_request import UpdateCustomerRequest
 
 
 class CustomersResource:
@@ -39,12 +42,14 @@ class CustomersResource:
 
     def create_customer(
         self,
+        body: CreateCustomerRequest,
     ) -> Customer:
         """Create a customer"""
         url = "/customers"
         response = self._client.request(
             "POST",
             url,
+            json=body.model_dump(mode="json"),
         )
         response.raise_for_status()
         return Customer.model_validate(response.json())
@@ -69,6 +74,7 @@ class CustomersResource:
     def update_customer(
         self,
         customer_id: UUID,
+        body: UpdateCustomerRequest,
     ) -> Customer:
         """Update a customer
 
@@ -81,6 +87,7 @@ class CustomersResource:
         response = self._client.request(
             "PUT",
             url,
+            json=body.model_dump(mode="json"),
         )
         response.raise_for_status()
         return Customer.model_validate(response.json())
@@ -108,6 +115,7 @@ class CustomersResource:
     def patch_customer(
         self,
         customer_id: UUID,
+        body: PatchCustomerRequest,
     ) -> Customer:
         """Partially update a customer
 
@@ -118,6 +126,7 @@ class CustomersResource:
         response = self._client.request(
             "PATCH",
             url,
+            json=body.model_dump(mode="json"),
         )
         response.raise_for_status()
         return Customer.model_validate(response.json())

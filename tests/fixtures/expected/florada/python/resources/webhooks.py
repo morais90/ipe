@@ -3,6 +3,7 @@ from __future__ import annotations
 from uuid import UUID
 
 import httpx
+from florada_payments.models.create_webhook_request import CreateWebhookRequest
 from florada_payments.models.webhook_endpoint import WebhookEndpoint
 
 
@@ -24,12 +25,14 @@ class WebhooksResource:
 
     def create_webhook(
         self,
+        body: CreateWebhookRequest,
     ) -> WebhookEndpoint:
         """Create a webhook endpoint"""
         url = "/webhooks"
         response = self._client.request(
             "POST",
             url,
+            json=body.model_dump(mode="json"),
         )
         response.raise_for_status()
         return WebhookEndpoint.model_validate(response.json())

@@ -93,4 +93,6 @@ class PythonTarget:
             "success_response": filters.success_response,
             "response_type": partial(filters.response_type, self),
             "response_deserialize": partial(filters.response_deserialize, self),
+            "body_type": partial(filters.body_type, self),
+            "body_call_arg": filters.body_call_arg,
         }
