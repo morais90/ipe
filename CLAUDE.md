@@ -81,10 +81,82 @@ uv run mypy src/ipe --strict
 uv run pytest --cov-fail-under=90
 ```
 
+## 🗺 Layers
+
+Responsibilities are layered. When making a change, the **first question** is: which layer does this belong to? Crossing layers is a smell — pause and reconsider.
+
+### `parsers/` — OpenAPI dialect
+
+**Knows OpenAPI. Knows nothing else.**
+
+- `fetcher.py` — fetch spec from file or HTTPS URL, parse YAML/JSON to dict
+- `models.py` — Pydantic models that mirror the OpenAPI 3.0/3.1 structure
+- `openapi.py` — `parse_openapi`: version validation, 3.0→3.1 normalization, eager non-Schema `$ref` inlining, Pydantic validation, lazy schema registry binding
+- `resolver.py` — generic `$ref` walker with id-based cycle protection
+
+**Belongs here:** anything tied to the OpenAPI dialect. **Does not belong here:** target/language knowledge.
+
+### `models/` — language-agnostic data model
+
+**Translation between OpenAPI and code generation.**
+
+- `standard.py` — `StandardOperation`, `StandardModel`, `StandardParameter`, `RequestBody`, `Response`, `AuthScheme`, etc. Schema shape classification (`_classify_schema`).
+- `blueprint.py` — `APIBlueprint`: the language-agnostic API representation produced by `SpecAnalyzer.extract`. Parser-agnostic — does not import OpenAPI parser models.
+
+**Belongs here:** structures consumed by any target. **Does not belong here:** Python-specific (or any target-specific) types/imports/syntax.
+
+### `core/` — pipeline
+
+**Coordinates the flow. Knows nothing about specific languages or formatters.**
+
+- `analyzer.py` — `SpecAnalyzer`: parse + extract blueprint
+- `generator.py` — `CodeGenerator`: orchestrates analyzer → target → renderer → formatter
+- `renderer.py` — `TemplateTreeRenderer`: generic Jinja walker; the **template tree on disk is the plan**; `{name}.py.jinja` convention; registers target-provided filters via `target.filters()`
+- `formatter.py` — `Formatter` Protocol + `FormatterConfig`
+- `config.py` — `IpeConfig`
+- `exceptions.py` — `IpeError` hierarchy
+
+**Belongs here:** language-agnostic orchestration. **Does not belong here:** filters, type maps, imports, or any code that mentions Python/Pydantic/TypeScript/etc.
+
+### `targets/` — language-specific knowledge
+
+**Each target owns ALL knowledge about its language.**
+
+- `base.py` — `LanguageTarget` Protocol + `NamingConvention` Protocol
+- `registry.py` — `TargetRegistry`
+- `python/` — Python target:
+  - `target.py` — `PythonTarget` implementation
+  - `naming.py` — `PythonNaming` (PascalCase, snake_case rules)
+  - `filters.py` — all Python-specific Jinja filters (`pyval`, `type_imports`, `response_type`, etc.)
+  - `formatters.py` — `RuffFormatter` and other Python formatters
+  - `templates/` — Jinja templates
+
+**Belongs here:** type maps, imports, formatters, language idioms, naming conventions, template helpers. **Does not belong here:** OpenAPI parsing, blueprint shape decisions.
+
+When a second target (TypeScript, Go) arrives, it creates `targets/typescript/` with the same shape — and nothing in `core/`, `parsers/`, or `models/` needs to change.
+
+### `utils/` — shared helpers
+
+**Pure utilities. No domain knowledge.**
+
+- `naming.py` — case conversion (`to_snake_case`, `to_pascal_case`, `to_camel_case`, `to_kebab_case`)
+- `grouping.py` — resource grouping strategies (`by_tag`, `by_path`, `by_nested_path`)
+
+**Belongs here:** language-agnostic, dependency-free helpers usable by any layer.
+
+### `cli/` — user-facing entry point
+
+**Bridges the CLI to the pipeline. Owns presentation, not logic.**
+
+- `main.py` — Typer commands; builds `IpeConfig`; invokes `CodeGenerator.run`
+- `console.py` — Rich rendering (`BloomingTree`, `GenerationProgress`, banner, summary)
+
+**Belongs here:** argument parsing, progress display, error presentation. **Does not belong here:** generation logic of any kind.
+
 ## 📐 Conventions
 
 ### Structure
-- src/ipe/: Main package (cli/, core/, parsers/, generators/, templates/)
+- src/ipe/: Main package (see Layers above)
 - tests/: Mirrors src structure
 - NumPy docstrings: Public APIs only
 - No docstrings: Tests, private functions
