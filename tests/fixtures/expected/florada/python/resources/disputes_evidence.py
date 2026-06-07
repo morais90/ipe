@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any
 from uuid import UUID
+
+from florada_payments.models.dispute import Dispute
 
 import httpx
 
@@ -15,7 +16,7 @@ class DisputesEvidenceResource:
     def submit_dispute_evidence(
         self,
         dispute_id: UUID,
-    ) -> Any:
+    ) -> Dispute:
         """Submit dispute evidence
 
         Submit evidence to contest a dispute. Can only be submitted once while
@@ -32,5 +33,5 @@ dispute is open.
             url,
         )
         response.raise_for_status()
-        return response.json()
+        return Dispute.model_validate(response.json())
 

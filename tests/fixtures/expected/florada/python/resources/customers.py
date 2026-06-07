@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Any
 from uuid import UUID
+
+from florada_payments.models.customer import Customer
+from florada_payments.models.customer_list import CustomerList
 
 import httpx
 
@@ -17,7 +19,7 @@ class CustomersResource:
         email: str | None = None,
         limit: int | None = 20,
         cursor: str | None = None,
-    ) -> Any:
+    ) -> CustomerList:
         """List customers
 
         Args:
@@ -36,11 +38,11 @@ class CustomersResource:
             },
         )
         response.raise_for_status()
-        return response.json()
+        return CustomerList.model_validate(response.json())
 
     def create_customer(
         self,
-    ) -> Any:
+    ) -> Customer:
         """Create a customer"""
         url = "/customers"
         response = self._client.request(
@@ -48,12 +50,12 @@ class CustomersResource:
             url,
         )
         response.raise_for_status()
-        return response.json()
+        return Customer.model_validate(response.json())
 
     def get_customer(
         self,
         customer_id: UUID,
-    ) -> Any:
+    ) -> Customer:
         """Retrieve a customer
 
         Args:
@@ -67,12 +69,12 @@ class CustomersResource:
             url,
         )
         response.raise_for_status()
-        return response.json()
+        return Customer.model_validate(response.json())
 
     def update_customer(
         self,
         customer_id: UUID,
-    ) -> Any:
+    ) -> Customer:
         """Update a customer
 
         Replaces all customer fields.
@@ -88,12 +90,12 @@ class CustomersResource:
             url,
         )
         response.raise_for_status()
-        return response.json()
+        return Customer.model_validate(response.json())
 
     def delete_customer(
         self,
         customer_id: UUID,
-    ) -> Any:
+    ) -> None:
         """Delete a customer
 
         Permanently deletes a customer and all associated data. Active
@@ -110,12 +112,12 @@ subscriptions will be cancelled.
             url,
         )
         response.raise_for_status()
-        return response.json()
+        return None
 
     def patch_customer(
         self,
         customer_id: UUID,
-    ) -> Any:
+    ) -> Customer:
         """Partially update a customer
 
         Args:
@@ -129,5 +131,5 @@ subscriptions will be cancelled.
             url,
         )
         response.raise_for_status()
-        return response.json()
+        return Customer.model_validate(response.json())
 

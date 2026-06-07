@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any
 from uuid import UUID
+
+from florada_payments.models.payment_method import PaymentMethod
 
 import httpx
 
@@ -16,7 +17,7 @@ class CustomersPaymentMethodsResource:
         self,
         customer_id: UUID,
         type_: str | None = None,
-    ) -> Any:
+    ) -> list[PaymentMethod]:
         """List payment methods for a customer
 
         Args:
@@ -34,12 +35,12 @@ class CustomersPaymentMethodsResource:
             },
         )
         response.raise_for_status()
-        return response.json()
+        return [PaymentMethod.model_validate(item) for item in response.json()]
 
     def attach_payment_method(
         self,
         customer_id: UUID,
-    ) -> Any:
+    ) -> PaymentMethod:
         """Attach a payment method to a customer
 
         Args:
@@ -53,13 +54,13 @@ class CustomersPaymentMethodsResource:
             url,
         )
         response.raise_for_status()
-        return response.json()
+        return PaymentMethod.model_validate(response.json())
 
     def detach_payment_method(
         self,
         customer_id: UUID,
         method_id: UUID,
-    ) -> Any:
+    ) -> None:
         """Detach a payment method
 
         Args:
@@ -75,5 +76,5 @@ class CustomersPaymentMethodsResource:
             url,
         )
         response.raise_for_status()
-        return response.json()
+        return None
 

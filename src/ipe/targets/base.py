@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -28,3 +29,5 @@ class LanguageTarget(Protocol):
     def template_dir(self) -> Path: ...
 
     def get_default_config(self) -> dict[str, Any]: ...
+
+    def filters(self) -> dict[str, Callable[..., Any]]: ...

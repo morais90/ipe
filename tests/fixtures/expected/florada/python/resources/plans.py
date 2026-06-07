@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from florada_payments.models.plan import Plan
 
 import httpx
 
@@ -14,7 +14,7 @@ class PlansResource:
     def list_plans(
         self,
         active: bool | None = None,
-    ) -> Any:
+    ) -> list[Plan]:
         """List plans
 
         Args:
@@ -29,11 +29,11 @@ class PlansResource:
             },
         )
         response.raise_for_status()
-        return response.json()
+        return [Plan.model_validate(item) for item in response.json()]
 
     def create_plan(
         self,
-    ) -> Any:
+    ) -> Plan:
         """Create a plan"""
         url = "/plans"
         response = self._client.request(
@@ -41,5 +41,5 @@ class PlansResource:
             url,
         )
         response.raise_for_status()
-        return response.json()
+        return Plan.model_validate(response.json())
 

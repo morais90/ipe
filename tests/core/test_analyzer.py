@@ -104,6 +104,38 @@ class TestSpecAnalyzerExtractOperations:
         assert list_charges.parameters[4].schema_format == "int32"
 
 
+class TestSpecAnalyzerExtractResponses:
+    def test_direct_ref_response(self, florada_blueprint: APIBlueprint):
+        get_charge = next(
+            op for op in florada_blueprint.operations if op.operation_id == "getCharge"
+        )
+        success = next(r for r in get_charge.responses if r.status_code == "200")
+
+        assert success.model_dump() == {
+            "status_code": "200",
+            "description": "Charge details",
+            "content_type": "application/json",
+            "model_names": ["Charge"],
+            "is_list": False,
+            "discriminator": None,
+            "primitive_type": None,
+        }
+
+    def test_paginated_list_response(self, florada_blueprint: APIBlueprint):
+        list_charges = florada_blueprint.operations[0]
+        success = next(r for r in list_charges.responses if r.status_code == "200")
+
+        assert success.model_dump() == {
+            "status_code": "200",
+            "description": "Paginated list of charges",
+            "content_type": "application/json",
+            "model_names": ["ChargeList"],
+            "is_list": False,
+            "discriminator": None,
+            "primitive_type": None,
+        }
+
+
 class TestSpecAnalyzerExtractModels:
     def test_model_names(self, florada_blueprint: APIBlueprint):
         assert {m.name for m in florada_blueprint.models} == {

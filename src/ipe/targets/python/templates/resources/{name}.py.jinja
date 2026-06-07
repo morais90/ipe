@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-{{ operations | param_type_imports }}
+{{ operations | resource_imports(module_name) }}
 
 import httpx
 
@@ -16,6 +16,7 @@ class {{ item_name | class_name }}Resource:
 {% set query_params = operation.parameters | selectattr("location", "equalto", "query") | list %}
 {% set has_params = path_params or query_params %}
 {% set has_details = operation.description or has_params %}
+{% set success = operation.responses | success_response %}
     def {{ operation.operation_id | method_name }}(
         self,
 {% for param in path_params %}
@@ -24,7 +25,7 @@ class {{ item_name | class_name }}Resource:
 {% for param in query_params %}
         {{ param.name | field_name }}: {{ param.schema_type | resolve_type(param.schema_format) }} | None = {% if param.default is not none %}{{ param.default | pyval }}{% else %}None{% endif %},
 {% endfor %}
-    ) -> Any:
+    ) -> {{ success | response_type }}:
 {% if operation.summary and not has_details %}
         """{{ operation.summary | strip_html }}"""
 {% elif operation.summary or has_details %}
@@ -66,6 +67,6 @@ class {{ item_name | class_name }}Resource:
 {% endif %}
         )
         response.raise_for_status()
-        return response.json()
+        return {{ success | response_deserialize }}
 
 {% endfor %}

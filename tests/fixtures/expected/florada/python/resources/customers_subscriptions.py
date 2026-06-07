@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any
 from uuid import UUID
+
+from florada_payments.models.subscription import Subscription
 
 import httpx
 
@@ -16,7 +17,7 @@ class CustomersSubscriptionsResource:
         self,
         customer_id: UUID,
         status: str | None = None,
-    ) -> Any:
+    ) -> list[Subscription]:
         """List subscriptions for a customer
 
         Args:
@@ -34,12 +35,12 @@ class CustomersSubscriptionsResource:
             },
         )
         response.raise_for_status()
-        return response.json()
+        return [Subscription.model_validate(item) for item in response.json()]
 
     def create_subscription(
         self,
         customer_id: UUID,
-    ) -> Any:
+    ) -> Subscription:
         """Create a subscription
 
         Subscribes a customer to a plan. First invoice is created immediately.
@@ -55,5 +56,5 @@ class CustomersSubscriptionsResource:
             url,
         )
         response.raise_for_status()
-        return response.json()
+        return Subscription.model_validate(response.json())
 

@@ -1,7 +1,10 @@
+from collections.abc import Callable
+from functools import partial
 from pathlib import Path
 from typing import Any
 
 from ipe.models.standard import StandardOperation
+from ipe.targets.python import filters
 from ipe.targets.python.naming import PythonNaming
 from ipe.utils.grouping import by_nested_path
 
@@ -57,4 +60,16 @@ class PythonTarget:
         return {
             "client_library": "httpx",
             "async_support": True,
+        }
+
+    def filters(self) -> dict[str, Callable[..., Any]]:
+        return {
+            "resolve_type": self.resolve_type,
+            "pyval": filters.pyval,
+            "type_imports": partial(filters.type_imports, self),
+            "param_type_imports": partial(filters.param_type_imports, self),
+            "resource_imports": partial(filters.resource_imports, self),
+            "success_response": filters.success_response,
+            "response_type": filters.response_type,
+            "response_deserialize": filters.response_deserialize,
         }

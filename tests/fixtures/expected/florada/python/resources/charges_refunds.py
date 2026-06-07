@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any
 from uuid import UUID
+
+from florada_payments.models.refund import Refund
 
 import httpx
 
@@ -15,7 +16,7 @@ class ChargesRefundsResource:
     def list_charge_refunds(
         self,
         charge_id: UUID,
-    ) -> Any:
+    ) -> list[Refund]:
         """List refunds for a charge
 
         Args:
@@ -29,12 +30,12 @@ class ChargesRefundsResource:
             url,
         )
         response.raise_for_status()
-        return response.json()
+        return [Refund.model_validate(item) for item in response.json()]
 
     def create_refund(
         self,
         charge_id: UUID,
-    ) -> Any:
+    ) -> Refund:
         """Create a refund
 
         Refunds a charge fully or partially. Multiple partial refunds are
@@ -51,5 +52,5 @@ allowed up to the original charge amount.
             url,
         )
         response.raise_for_status()
-        return response.json()
+        return Refund.model_validate(response.json())
 

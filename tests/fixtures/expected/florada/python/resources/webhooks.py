@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any
 from uuid import UUID
+
+from florada_payments.models.webhook_endpoint import WebhookEndpoint
 
 import httpx
 
@@ -14,7 +15,7 @@ class WebhooksResource:
 
     def list_webhooks(
         self,
-    ) -> Any:
+    ) -> list[WebhookEndpoint]:
         """List webhook endpoints"""
         url = "/webhooks"
         response = self._client.request(
@@ -22,11 +23,11 @@ class WebhooksResource:
             url,
         )
         response.raise_for_status()
-        return response.json()
+        return [WebhookEndpoint.model_validate(item) for item in response.json()]
 
     def create_webhook(
         self,
-    ) -> Any:
+    ) -> WebhookEndpoint:
         """Create a webhook endpoint"""
         url = "/webhooks"
         response = self._client.request(
@@ -34,12 +35,12 @@ class WebhooksResource:
             url,
         )
         response.raise_for_status()
-        return response.json()
+        return WebhookEndpoint.model_validate(response.json())
 
     def delete_webhook(
         self,
         webhook_id: UUID,
-    ) -> Any:
+    ) -> None:
         """Delete a webhook endpoint
 
         Args:
@@ -53,5 +54,5 @@ class WebhooksResource:
             url,
         )
         response.raise_for_status()
-        return response.json()
+        return None
 

@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
 from uuid import UUID
+
+from florada_payments.models.charge import Charge
+from florada_payments.models.charge_list import ChargeList
 
 import httpx
 
@@ -21,7 +23,7 @@ class ChargesResource:
         created_before: datetime | None = None,
         limit: int | None = 20,
         cursor: str | None = None,
-    ) -> Any:
+    ) -> ChargeList:
         """List charges
 
         Returns a paginated list of charges. Supports filtering by status,
@@ -49,11 +51,11 @@ customer, and date range.
             },
         )
         response.raise_for_status()
-        return response.json()
+        return ChargeList.model_validate(response.json())
 
     def create_charge(
         self,
-    ) -> Any:
+    ) -> Charge:
         """Create a charge
 
         Creates a new payment charge. The charge is processed immediately for
@@ -65,13 +67,13 @@ card payments, or generates a payment voucher for boleto/pix.
             url,
         )
         response.raise_for_status()
-        return response.json()
+        return Charge.model_validate(response.json())
 
     def get_charge(
         self,
         charge_id: UUID,
         expand: list | None = None,
-    ) -> Any:
+    ) -> Charge:
         """Retrieve a charge
 
         Args:
@@ -89,5 +91,5 @@ card payments, or generates a payment voucher for boleto/pix.
             },
         )
         response.raise_for_status()
-        return response.json()
+        return Charge.model_validate(response.json())
 

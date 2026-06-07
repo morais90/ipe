@@ -160,8 +160,10 @@ class Response(BaseModel):
     status_code: str
     description: str | None = None
     content_type: str | None = None
-    schema_type: str | None = None
-    schema_format: str | None = None
+    model_names: list[str] = Field(default_factory=list)
+    is_list: bool = False
+    discriminator: str | None = None
+    primitive_type: str | None = None
 
     @classmethod
     def from_response(
@@ -172,12 +174,15 @@ class Response(BaseModel):
         if content_type and resp.content:
             schema = resp.content[content_type].schema_
 
+        shape = _classify_response_schema(schema)
         return cls(
             status_code=status_code,
             description=resp.description,
             content_type=content_type,
-            schema_type=_resolve_type(schema) if schema else None,
-            schema_format=schema.format if schema else None,
+            model_names=shape.model_names,
+            is_list=shape.is_list,
+            discriminator=shape.discriminator,
+            primitive_type=shape.primitive_type,
         )
 
 
@@ -286,3 +291,68 @@ def _is_nullable(schema: openapi.Schema) -> bool:
     if schema.nullable is True:
         return True
     return isinstance(schema.type, list) and "null" in schema.type
+
+
+_PRIMITIVE_TYPES = frozenset({"string", "integer", "number", "boolean"})
+
+
+class _ResponseShape(BaseModel):
+    model_names: list[str] = Field(default_factory=list)
+    is_list: bool = False
+    discriminator: str | None = None
+    primitive_type: str | None = None
+
+
+def _classify_response_schema(schema: openapi.Schema | None) -> _ResponseShape:
+    if schema is None:
+        return _ResponseShape()
+
+    if schema.ref:
+        name = _name_from_ref(schema.ref)
+        return _ResponseShape(model_names=[name] if name else [])
+
+    union_schemas = schema.one_of or schema.any_of
+    if union_schemas:
+        model_names = _collect_schema_ref_names(union_schemas)
+        if model_names:
+            discriminator = (
+                schema.discriminator.property_name if schema.discriminator else None
+            )
+            return _ResponseShape(model_names=model_names, discriminator=discriminator)
+
+    if schema.type == "array" and schema.items is not None:
+        nested = _classify_response_schema(schema.items)
+        return _ResponseShape(
+            model_names=nested.model_names,
+            is_list=True,
+            discriminator=nested.discriminator,
+            primitive_type=nested.primitive_type,
+        )
+
+    if isinstance(schema.type, str) and schema.type in _PRIMITIVE_TYPES:
+        return _ResponseShape(primitive_type=schema.type)
+
+    return _ResponseShape()
+
+
+def _name_from_ref(ref: str) -> str | None:
+    prefix = "#/components/schemas/"
+
+    if not ref.startswith(prefix):
+        return None
+
+    return ref[len(prefix) :]
+
+
+def _collect_schema_ref_names(schemas: list[openapi.Schema]) -> list[str]:
+    model_names: list[str] = []
+
+    for sub_schema in schemas:
+        if sub_schema.ref is None:
+            continue
+
+        model_name = _name_from_ref(sub_schema.ref)
+        if model_name is not None:
+            model_names.append(model_name)
+
+    return model_names

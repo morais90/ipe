@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any
 from uuid import UUID
+
+from florada_payments.models.charge import Charge
 
 import httpx
 
@@ -15,7 +16,7 @@ class ChargesCaptureResource:
     def capture_charge(
         self,
         charge_id: UUID,
-    ) -> Any:
+    ) -> Charge:
         """Capture a charge
 
         Captures a previously authorized charge. Only applicable to card
@@ -32,5 +33,5 @@ payments with capture_method=manual.
             url,
         )
         response.raise_for_status()
-        return response.json()
+        return Charge.model_validate(response.json())
 

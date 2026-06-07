@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any
 from uuid import UUID
+
+from florada_payments.models.dispute import Dispute
 
 import httpx
 
@@ -15,7 +16,7 @@ class DisputesResource:
     def list_disputes(
         self,
         status: str | None = None,
-    ) -> Any:
+    ) -> list[Dispute]:
         """List disputes
 
         Args:
@@ -30,12 +31,12 @@ class DisputesResource:
             },
         )
         response.raise_for_status()
-        return response.json()
+        return [Dispute.model_validate(item) for item in response.json()]
 
     def get_dispute(
         self,
         dispute_id: UUID,
-    ) -> Any:
+    ) -> Dispute:
         """Retrieve a dispute
 
         Args:
@@ -49,5 +50,5 @@ class DisputesResource:
             url,
         )
         response.raise_for_status()
-        return response.json()
+        return Dispute.model_validate(response.json())
 
