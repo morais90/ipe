@@ -2,9 +2,8 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from florada_payments.models.subscription import Subscription
-
 import httpx
+from florada_payments.models.subscription import Subscription
 
 
 class CustomersSubscriptionsResource:
@@ -22,9 +21,7 @@ class CustomersSubscriptionsResource:
             customer_id: Unique customer identifier
             status: status
         """
-        url = "/customers/{customer_id}/subscriptions".format(
-            customer_id=customer_id,
-        )
+        url = f"/customers/{customer_id}/subscriptions"
         response = self._client.request(
             "GET",
             url,
@@ -41,18 +38,16 @@ class CustomersSubscriptionsResource:
     ) -> Subscription:
         """Create a subscription
 
-        Subscribes a customer to a plan. First invoice is created immediately.
+        Subscribes a customer to a plan. First invoice is created
+        immediately.
 
         Args:
             customer_id: Unique customer identifier
         """
-        url = "/customers/{customer_id}/subscriptions".format(
-            customer_id=customer_id,
-        )
+        url = f"/customers/{customer_id}/subscriptions"
         response = self._client.request(
             "POST",
             url,
         )
         response.raise_for_status()
         return Subscription.model_validate(response.json())
-

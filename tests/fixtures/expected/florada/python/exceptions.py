@@ -1,7 +1,12 @@
 class FloradaPaymentsError(Exception):
     """Base exception for Florada Payments API errors."""
 
-    def __init__(self, message: str, status_code: int | None = None, response: object | None = None) -> None:
+    def __init__(
+        self,
+        message: str,
+        status_code: int | None = None,
+        response: object | None = None,
+    ) -> None:
         super().__init__(message)
         self.status_code = status_code
         self.response = response

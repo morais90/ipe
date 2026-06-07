@@ -14,6 +14,7 @@ def florada_config(tmp_path: Path) -> IpeConfig:
         spec_path=str(FIXTURES_DIR / "florada.yaml"),
         output_dir=tmp_path,
         target="python",
+        auto_format=False,
     )
 
 
@@ -33,6 +34,19 @@ class TestCodeGeneratorCallbacks:
             "Grouping operations",
             "Rendering templates",
         ]
+
+    def test_formatting_phase_fires_when_enabled(self, tmp_path: Path):
+        config = IpeConfig(
+            spec_path=str(FIXTURES_DIR / "florada.yaml"),
+            output_dir=tmp_path,
+            target="python",
+            auto_format=True,
+        )
+        phases: list[str] = []
+
+        CodeGenerator().run(config, on_phase=phases.append)
+
+        assert phases[-1] == "Formatting output"
 
     def test_on_file_fires_for_every_written_path(self, florada_config: IpeConfig):
         seen: list[Path] = []

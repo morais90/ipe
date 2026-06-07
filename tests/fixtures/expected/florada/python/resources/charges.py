@@ -3,10 +3,9 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
+import httpx
 from florada_payments.models.charge import Charge
 from florada_payments.models.charge_list import ChargeList
-
-import httpx
 
 
 class ChargesResource:
@@ -24,8 +23,8 @@ class ChargesResource:
     ) -> ChargeList:
         """List charges
 
-        Returns a paginated list of charges. Supports filtering by status,
-customer, and date range.
+        Returns a paginated list of charges. Supports filtering by
+        status, customer, and date range.
 
         Args:
             status: Filter by charge status
@@ -56,8 +55,9 @@ customer, and date range.
     ) -> Charge:
         """Create a charge
 
-        Creates a new payment charge. The charge is processed immediately for
-card payments, or generates a payment voucher for boleto/pix.
+        Creates a new payment charge. The charge is processed
+        immediately for card payments, or generates a payment voucher
+        for boleto/pix.
         """
         url = "/charges"
         response = self._client.request(
@@ -78,9 +78,7 @@ card payments, or generates a payment voucher for boleto/pix.
             charge_id: Unique charge identifier
             expand: Related resources to include in the response
         """
-        url = "/charges/{charge_id}".format(
-            charge_id=charge_id,
-        )
+        url = f"/charges/{charge_id}"
         response = self._client.request(
             "GET",
             url,
@@ -90,4 +88,3 @@ card payments, or generates a payment voucher for boleto/pix.
         )
         response.raise_for_status()
         return Charge.model_validate(response.json())
-

@@ -10,7 +10,7 @@ from pydantic import BaseModel
 
 class {{ model.name | class_name }}(BaseModel):
 {% if model.description %}
-    """{{ model.description | strip_html | wordwrap(72) }}"""
+    """{{ model.description | strip_html | wordwrap(68, wrapstring='\n    ') }}"""
 
 {% endif %}
 {% if not model.properties %}

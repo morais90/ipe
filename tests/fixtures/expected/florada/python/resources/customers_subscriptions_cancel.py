@@ -2,9 +2,8 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from florada_payments.models.subscription import Subscription
-
 import httpx
+from florada_payments.models.subscription import Subscription
 
 
 class CustomersSubscriptionsCancelResource:
@@ -18,21 +17,17 @@ class CustomersSubscriptionsCancelResource:
     ) -> Subscription:
         """Cancel a subscription
 
-        Cancels a subscription. Can be immediate or at end of current billing
-period.
+        Cancels a subscription. Can be immediate or at end of current
+        billing period.
 
         Args:
             customer_id: Unique customer identifier
             subscription_id: subscription_id
         """
-        url = "/customers/{customer_id}/subscriptions/{subscription_id}/cancel".format(
-            customer_id=customer_id,
-            subscription_id=subscription_id,
-        )
+        url = f"/customers/{customer_id}/subscriptions/{subscription_id}/cancel"
         response = self._client.request(
             "POST",
             url,
         )
         response.raise_for_status()
         return Subscription.model_validate(response.json())
-

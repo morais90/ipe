@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from uuid import UUID
 
+import httpx
 from florada_payments.models.customer import Customer
 from florada_payments.models.customer_list import CustomerList
-
-import httpx
 
 
 class CustomersResource:
@@ -59,9 +58,7 @@ class CustomersResource:
         Args:
             customer_id: Unique customer identifier
         """
-        url = "/customers/{customer_id}".format(
-            customer_id=customer_id,
-        )
+        url = f"/customers/{customer_id}"
         response = self._client.request(
             "GET",
             url,
@@ -80,9 +77,7 @@ class CustomersResource:
         Args:
             customer_id: Unique customer identifier
         """
-        url = "/customers/{customer_id}".format(
-            customer_id=customer_id,
-        )
+        url = f"/customers/{customer_id}"
         response = self._client.request(
             "PUT",
             url,
@@ -97,20 +92,17 @@ class CustomersResource:
         """Delete a customer
 
         Permanently deletes a customer and all associated data. Active
-subscriptions will be cancelled.
+        subscriptions will be cancelled.
 
         Args:
             customer_id: Unique customer identifier
         """
-        url = "/customers/{customer_id}".format(
-            customer_id=customer_id,
-        )
+        url = f"/customers/{customer_id}"
         response = self._client.request(
             "DELETE",
             url,
         )
         response.raise_for_status()
-        return None
 
     def patch_customer(
         self,
@@ -121,13 +113,10 @@ subscriptions will be cancelled.
         Args:
             customer_id: Unique customer identifier
         """
-        url = "/customers/{customer_id}".format(
-            customer_id=customer_id,
-        )
+        url = f"/customers/{customer_id}"
         response = self._client.request(
             "PATCH",
             url,
         )
         response.raise_for_status()
         return Customer.model_validate(response.json())
-

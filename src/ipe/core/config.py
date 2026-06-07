@@ -7,6 +7,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
+from ipe.core.formatter import FormatterConfig
+
 
 class IpeConfig(BaseModel):
     """Configuration for Ipê code generation.
@@ -40,6 +42,14 @@ class IpeConfig(BaseModel):
     )
     template_dir: Path | None = Field(
         default=None, description="Custom template directory"
+    )
+    formatter: FormatterConfig | None = Field(
+        default=None,
+        description="Override the target's default formatter",
+    )
+    auto_format: bool = Field(
+        default=True,
+        description="Run a code formatter after generation",
     )
 
     @field_validator("module_name")

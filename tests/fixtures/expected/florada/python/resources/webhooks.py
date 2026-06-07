@@ -2,9 +2,8 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from florada_payments.models.webhook_endpoint import WebhookEndpoint
-
 import httpx
+from florada_payments.models.webhook_endpoint import WebhookEndpoint
 
 
 class WebhooksResource:
@@ -44,13 +43,9 @@ class WebhooksResource:
         Args:
             webhook_id: webhook_id
         """
-        url = "/webhooks/{webhook_id}".format(
-            webhook_id=webhook_id,
-        )
+        url = f"/webhooks/{webhook_id}"
         response = self._client.request(
             "DELETE",
             url,
         )
         response.raise_for_status()
-        return None
-

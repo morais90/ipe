@@ -2,6 +2,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Protocol
 
+from ipe.core.formatter import Formatter, FormatterConfig
 from ipe.models.standard import StandardOperation
 
 
@@ -31,3 +32,7 @@ class LanguageTarget(Protocol):
     def get_default_config(self) -> dict[str, Any]: ...
 
     def filters(self) -> dict[str, Callable[..., Any]]: ...
+
+    def default_formatter(self) -> FormatterConfig | None: ...
+
+    def make_formatter(self, config: FormatterConfig) -> Formatter: ...

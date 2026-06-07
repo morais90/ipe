@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from florada_payments.models.plan import Plan
-
 import httpx
+from florada_payments.models.plan import Plan
 
 
 class PlansResource:
@@ -40,4 +39,3 @@ class PlansResource:
         )
         response.raise_for_status()
         return Plan.model_validate(response.json())
-

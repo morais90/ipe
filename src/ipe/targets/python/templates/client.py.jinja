@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import httpx
 
-{% for resource_path in resources.keys() | sort %}
+{% for resource_path in resources.keys() %}
 from {{ module_name }}.resources.{{ resource_path | replace("/", ".") }} import {{ resource_path.split("/")[-1] | class_name }}Resource
 {% endfor %}
 
@@ -11,7 +11,7 @@ class {{ api_name | class_name }}Client:
     """{{ api_name }} API client.
 {% if spec_description %}
 
-    {{ spec_description | strip_html | wordwrap(72) }}
+    {{ spec_description | strip_html | wordwrap(68, wrapstring='\n    ') }}
 {% endif %}
 
     Usage:

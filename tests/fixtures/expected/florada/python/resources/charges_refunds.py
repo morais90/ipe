@@ -2,9 +2,8 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from florada_payments.models.refund import Refund
-
 import httpx
+from florada_payments.models.refund import Refund
 
 
 class ChargesRefundsResource:
@@ -20,9 +19,7 @@ class ChargesRefundsResource:
         Args:
             charge_id: Unique charge identifier
         """
-        url = "/charges/{charge_id}/refunds".format(
-            charge_id=charge_id,
-        )
+        url = f"/charges/{charge_id}/refunds"
         response = self._client.request(
             "GET",
             url,
@@ -36,19 +33,16 @@ class ChargesRefundsResource:
     ) -> Refund:
         """Create a refund
 
-        Refunds a charge fully or partially. Multiple partial refunds are
-allowed up to the original charge amount.
+        Refunds a charge fully or partially. Multiple partial refunds
+        are allowed up to the original charge amount.
 
         Args:
             charge_id: Unique charge identifier
         """
-        url = "/charges/{charge_id}/refunds".format(
-            charge_id=charge_id,
-        )
+        url = f"/charges/{charge_id}/refunds"
         response = self._client.request(
             "POST",
             url,
         )
         response.raise_for_status()
         return Refund.model_validate(response.json())
-

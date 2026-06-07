@@ -137,3 +137,7 @@ class TemplateError(IpeError):
             details["template_error"] = template_error
 
         super().__init__(message, suggestion, details)
+
+
+class FormatterError(IpeError):
+    pass

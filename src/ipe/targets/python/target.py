@@ -3,8 +3,11 @@ from functools import partial
 from pathlib import Path
 from typing import Any
 
+from ipe.core.exceptions import IpeError
+from ipe.core.formatter import Formatter, FormatterConfig
 from ipe.models.standard import StandardOperation
 from ipe.targets.python import filters
+from ipe.targets.python.formatters import RuffFormatter
 from ipe.targets.python.naming import PythonNaming
 from ipe.utils.grouping import by_nested_path
 
@@ -61,6 +64,24 @@ class PythonTarget:
             "client_library": "httpx",
             "async_support": True,
         }
+
+    def default_formatter(self) -> FormatterConfig | None:
+        return FormatterConfig(name="ruff")
+
+    def make_formatter(self, config: FormatterConfig) -> Formatter:
+        builders: dict[str, Callable[[dict[str, Any]], Formatter]] = {
+            "ruff": RuffFormatter,
+        }
+
+        builder = builders.get(config.name)
+
+        if builder is None:
+            raise IpeError(
+                f"Python target does not support formatter '{config.name}'",
+                f"Available formatters: {', '.join(sorted(builders))}",
+            )
+
+        return builder(config.options)
 
     def filters(self) -> dict[str, Callable[..., Any]]:
         return {

@@ -30,16 +30,16 @@ class {{ item_name | class_name }}Resource:
         """{{ (operation.summary or '') | strip_html }}
 {% if operation.description %}
 
-        {{ operation.description | strip_html | wordwrap(72) }}
+        {{ operation.description | strip_html | wordwrap(64, wrapstring='\n        ') }}
 {% endif %}
 {% if has_params %}
 
         Args:
 {% for param in path_params %}
-            {{ param.name | field_name }}: {{ (param.description or param.name) | strip_html }}
+            {{ ((param.name | field_name) ~ ": " ~ ((param.description or param.name) | strip_html)) | wordwrap(56, wrapstring='\n                ') }}
 {% endfor %}
 {% for param in query_params %}
-            {{ param.name | field_name }}: {{ (param.description or param.name) | strip_html }}
+            {{ ((param.name | field_name) ~ ": " ~ ((param.description or param.name) | strip_html)) | wordwrap(56, wrapstring='\n                ') }}
 {% endfor %}
 {% endif %}
         """

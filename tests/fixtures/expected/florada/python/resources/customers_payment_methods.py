@@ -2,9 +2,8 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from florada_payments.models.payment_method import PaymentMethod
-
 import httpx
+from florada_payments.models.payment_method import PaymentMethod
 
 
 class CustomersPaymentMethodsResource:
@@ -22,9 +21,7 @@ class CustomersPaymentMethodsResource:
             customer_id: Unique customer identifier
             type_: Filter by payment method type
         """
-        url = "/customers/{customer_id}/payment-methods".format(
-            customer_id=customer_id,
-        )
+        url = f"/customers/{customer_id}/payment-methods"
         response = self._client.request(
             "GET",
             url,
@@ -44,9 +41,7 @@ class CustomersPaymentMethodsResource:
         Args:
             customer_id: Unique customer identifier
         """
-        url = "/customers/{customer_id}/payment-methods".format(
-            customer_id=customer_id,
-        )
+        url = f"/customers/{customer_id}/payment-methods"
         response = self._client.request(
             "POST",
             url,
@@ -65,14 +60,9 @@ class CustomersPaymentMethodsResource:
             customer_id: Unique customer identifier
             method_id: method_id
         """
-        url = "/customers/{customer_id}/payment-methods/{method_id}".format(
-            customer_id=customer_id,
-            method_id=method_id,
-        )
+        url = f"/customers/{customer_id}/payment-methods/{method_id}"
         response = self._client.request(
             "DELETE",
             url,
         )
         response.raise_for_status()
-        return None
-

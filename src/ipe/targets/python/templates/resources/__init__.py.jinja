@@ -1,4 +1,4 @@
-{% for resource_path in resources.keys() | sort %}
+{% for resource_path in resources.keys() %}
 from {{ module_name }}.resources.{{ resource_path | replace("/", ".") }} import {{ resource_path.split("/")[-1] | class_name }}Resource
 {% endfor %}
 

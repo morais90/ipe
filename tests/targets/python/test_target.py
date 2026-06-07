@@ -4,7 +4,10 @@ import pytest
 
 from ipe.core.analyzer import SpecAnalyzer
 from ipe.core.config import IpeConfig
+from ipe.core.exceptions import IpeError
+from ipe.core.formatter import FormatterConfig
 from ipe.models.standard import StandardOperation
+from ipe.targets.python.formatters import RuffFormatter
 from ipe.targets.python.target import PythonTarget
 
 FIXTURES_DIR = Path(__file__).parent.parent.parent / "fixtures"
@@ -78,3 +81,20 @@ class TestPythonTargetGroup:
             "plans",
             "webhooks",
         }
+
+
+
+class TestPythonTargetFormatter:
+    def test_default_formatter_is_ruff(self, target: PythonTarget):
+        default = target.default_formatter()
+
+        assert default == FormatterConfig(name="ruff")
+
+    def test_make_formatter_ruff(self, target: PythonTarget):
+        formatter = target.make_formatter(FormatterConfig(name="ruff"))
+
+        assert isinstance(formatter, RuffFormatter)
+
+    def test_make_formatter_unknown_raises(self, target: PythonTarget):
+        with pytest.raises(IpeError, match="does not support formatter"):
+            target.make_formatter(FormatterConfig(name="black"))

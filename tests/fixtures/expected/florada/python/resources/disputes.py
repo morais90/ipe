@@ -2,9 +2,8 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from florada_payments.models.dispute import Dispute
-
 import httpx
+from florada_payments.models.dispute import Dispute
 
 
 class DisputesResource:
@@ -40,13 +39,10 @@ class DisputesResource:
         Args:
             dispute_id: dispute_id
         """
-        url = "/disputes/{dispute_id}".format(
-            dispute_id=dispute_id,
-        )
+        url = f"/disputes/{dispute_id}"
         response = self._client.request(
             "GET",
             url,
         )
         response.raise_for_status()
         return Dispute.model_validate(response.json())
-

@@ -16,7 +16,7 @@ class Charge(BaseModel):
     customer_id: UUID | None = None
     payment_method: dict[str, Any] | None = None
     payment_method_id: UUID | None = None
-    capture_method: str = 'automatic'
+    capture_method: str = "automatic"
     captured: bool = False
     refunded_amount: dict[str, Any] | None = None
     dispute: dict[str, Any] | None = None

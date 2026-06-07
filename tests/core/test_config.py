@@ -38,6 +38,8 @@ class TestIpeConfig:
             "spec_path": "",
             "targets": {},
             "template_dir": None,
+            "formatter": None,
+            "auto_format": True,
         }
 
     def test_full_configuration(self, full_config_data: dict[str, Any]):
@@ -104,6 +106,8 @@ class TestIpeConfig:
             "spec_path",
             "targets",
             "template_dir",
+            "formatter",
+            "auto_format",
         }
 
 
@@ -174,6 +178,7 @@ class TestConfigSaving:
             "output_dir": "output",
             "spec_path": "",
             "targets": {},
+            "auto_format": True,
         }
 
     def test_save_full_config(self, tmp_path: Path):
@@ -197,6 +202,7 @@ class TestConfigSaving:
             "spec_path": "./api.yaml",
             "targets": {"typescript": {"runtime": "fetch"}},
             "template_dir": "/custom",
+            "auto_format": True,
         }
 
     def test_roundtrip(self, tmp_path: Path):
