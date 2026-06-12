@@ -2,14 +2,9 @@ from __future__ import annotations
 
 {{ operations | resource_imports(module_name) }}
 
-import httpx
+from {{ module_name }}.transport import AsyncTransport, Transport
 
-
-class {{ item_name | class_name }}Resource:
-    def __init__(self, client: httpx.Client) -> None:
-        self._client = client
-
-{% for operation in operations %}
+{% macro method(operation, is_async) %}
 {% set path_params = operation.parameters | selectattr("location", "equalto", "path") | list %}
 {% set query_params = operation.parameters | selectattr("location", "equalto", "query") | list %}
 {% set has_params = path_params or query_params %}
@@ -17,7 +12,11 @@ class {{ item_name | class_name }}Resource:
 {% set success = operation.responses | success_response %}
 {% set body = operation.request_body %}
     @validated
+{% if is_async %}
+    async def {{ operation.operation_id | method_name }}(
+{% else %}
     def {{ operation.operation_id | method_name }}(
+{% endif %}
         self,
 {% for param in path_params %}
         {{ param.name | field_name }}: {{ param | field_type }},
@@ -58,7 +57,7 @@ class {{ item_name | class_name }}Resource:
 {% else %}
         url = "{{ operation.path }}"
 {% endif %}
-        response = self._client.request(
+        response = {% if is_async %}await {% endif %}self._transport.request(
             "{{ operation.method }}",
             url,
 {% if query_params %}
@@ -74,5 +73,22 @@ class {{ item_name | class_name }}Resource:
         )
         response.raise_for_status()
         return {{ success | response_deserialize }}
+{% endmacro %}
 
+
+class {{ item_name | class_name }}Resource:
+    def __init__(self, transport: Transport) -> None:
+        self._transport = transport
+
+{% for operation in operations %}
+{{ method(operation, false) }}
+{% endfor %}
+
+
+class Async{{ item_name | class_name }}Resource:
+    def __init__(self, transport: AsyncTransport) -> None:
+        self._transport = transport
+
+{% for operation in operations %}
+{{ method(operation, true) }}
 {% endfor %}
