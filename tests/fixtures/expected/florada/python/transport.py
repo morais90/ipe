@@ -1,16 +1,43 @@
 from __future__ import annotations
 
+import json
 from typing import Any, Protocol
 
 import httpx
+from florada_payments.exceptions import error_for_status
 
 
-class Response(Protocol):
-    """Normalized HTTP response consumed by resources."""
+class Response:
+    """HTTP response returned by a transport, decoupled from the HTTP library."""
 
-    def json(self) -> Any: ...
+    def __init__(self, status_code: int, content: bytes) -> None:
+        self.status_code = status_code
+        self._content = content
 
-    def raise_for_status(self) -> object: ...
+    def json(self) -> Any:
+        return json.loads(self._content)
+
+    def raise_for_status(self) -> None:
+        if self.status_code < 400:
+            return
+
+        raise error_for_status(self.status_code, self._error_message(), self)
+
+    def _error_message(self) -> str:
+        try:
+            body = self.json()
+        except ValueError:
+            return f"HTTP {self.status_code}"
+
+        if not isinstance(body, dict):
+            return f"HTTP {self.status_code}"
+
+        for key in ("message", "detail", "error"):
+            value = body.get(key)
+            if isinstance(value, str):
+                return value
+
+        return f"HTTP {self.status_code}"
 
 
 class Transport(Protocol):
@@ -80,7 +107,7 @@ class HttpxTransport:
         files: Any = None,
         content: Any = None,
     ) -> Response:
-        return self._client.request(
+        httpx_response = self._client.request(
             method,
             url,
             params=params,
@@ -89,6 +116,8 @@ class HttpxTransport:
             files=files,
             content=content,
         )
+
+        return Response(httpx_response.status_code, httpx_response.content)
 
     def close(self) -> None:
         self._client.close()
@@ -121,7 +150,7 @@ class AsyncHttpxTransport:
         files: Any = None,
         content: Any = None,
     ) -> Response:
-        return await self._client.request(
+        httpx_response = await self._client.request(
             method,
             url,
             params=params,
@@ -130,6 +159,8 @@ class AsyncHttpxTransport:
             files=files,
             content=content,
         )
+
+        return Response(httpx_response.status_code, httpx_response.content)
 
     async def aclose(self) -> None:
         await self._client.aclose()
