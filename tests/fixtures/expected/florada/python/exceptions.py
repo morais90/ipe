@@ -67,6 +67,55 @@ class InternalServerError(FloradaPaymentsError):
     pass
 
 
+_STATUS_EXCEPTIONS: dict[int, type[FloradaPaymentsError]] = {
+    400: BadRequestError,
+    401: UnauthorizedError,
+    403: ForbiddenError,
+    404: NotFoundError,
+    409: ConflictError,
+    422: ValidationError,
+    429: RateLimitError,
+}
+
+
+def _exception_type(status_code: int) -> type[FloradaPaymentsError]:
+    mapped = _STATUS_EXCEPTIONS.get(status_code)
+
+    if mapped is not None:
+        return mapped
+
+    if status_code >= 500:
+        return InternalServerError
+
+    return FloradaPaymentsError
+
+
+def error_for_status(
+    status_code: int,
+    message: str,
+    response: object | None = None,
+) -> FloradaPaymentsError:
+    """Return the exception that best matches an HTTP error status.
+
+    Parameters
+    ----------
+    status_code : int
+        HTTP status code of the failed response.
+    message : str
+        Human-readable description of the failure.
+    response : object, optional
+        Transport response that triggered the error.
+
+    Returns
+    -------
+    FloradaPaymentsError
+        The most specific exception for ``status_code``.
+    """
+    exc_type = _exception_type(status_code)
+
+    return exc_type(message, status_code=status_code, response=response)
+
+
 def _as_validation_error(exc: _PydanticValidationError) -> ValidationError:
     err = exc.errors()[0]
     field = ".".join(str(part) for part in err["loc"]) or None
