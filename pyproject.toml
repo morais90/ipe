@@ -139,6 +139,7 @@ markers = [
 [tool.coverage.run]
 branch = true
 source = ["src/ipe"]
+omit = ["src/ipe/targets/*/templates/*"]
 
 [tool.coverage.report]
 exclude_lines = [

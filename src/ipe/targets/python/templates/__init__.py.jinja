@@ -1,5 +1,9 @@
-from {{ module_name }}.client import {{ api_name | class_name }}Client
+from {{ module_name }}.client import Async{{ api_name | class_name }}Client, {{ api_name | class_name }}Client
+from {{ module_name }}.transport import AsyncTransport, Transport
 
 __all__ = [
+    "Async{{ api_name | class_name }}Client",
+    "AsyncTransport",
     "{{ api_name | class_name }}Client",
+    "Transport",
 ]
