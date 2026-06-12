@@ -88,6 +88,7 @@ class PythonTarget:
             "resolve_type": self.resolve_type,
             "pyval": filters.pyval,
             "type_imports": partial(filters.type_imports, self),
+            "model_imports": partial(filters.model_imports, self),
             "param_type_imports": partial(filters.param_type_imports, self),
             "resource_imports": partial(filters.resource_imports, self),
             "success_response": filters.success_response,

@@ -1,11 +1,6 @@
 from __future__ import annotations
 
-{% set extra_imports = model.properties | type_imports %}
-{% if extra_imports %}
-{{ extra_imports }}
-
-{% endif %}
-from pydantic import BaseModel
+{{ model | model_imports(module_name) }}
 
 
 class {{ model.name | class_name }}(BaseModel):

@@ -34,7 +34,7 @@ class CustomersSubscriptionsCancelResource:
         response = self._transport.request(
             "POST",
             url,
-            json=body.model_dump(mode="json"),
+            json=body.model_dump(mode="json") if body is not None else None,
         )
         response.raise_for_status()
         return Subscription.model_validate(response.json())
@@ -64,7 +64,7 @@ class AsyncCustomersSubscriptionsCancelResource:
         response = await self._transport.request(
             "POST",
             url,
-            json=body.model_dump(mode="json"),
+            json=body.model_dump(mode="json") if body is not None else None,
         )
         response.raise_for_status()
         return Subscription.model_validate(response.json())

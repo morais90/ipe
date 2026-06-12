@@ -7,4 +7,4 @@ from pydantic import BaseModel, Field
 
 class CreateWebhookRequest(BaseModel):
     url: str
-    events: Annotated[list, Field(min_length=1)]
+    events: Annotated[list[str], Field(min_length=1)]

@@ -30,7 +30,7 @@ class ChargesCaptureResource:
         response = self._transport.request(
             "POST",
             url,
-            json=body.model_dump(mode="json"),
+            json=body.model_dump(mode="json") if body is not None else None,
         )
         response.raise_for_status()
         return Charge.model_validate(response.json())
@@ -58,7 +58,7 @@ class AsyncChargesCaptureResource:
         response = await self._transport.request(
             "POST",
             url,
-            json=body.model_dump(mode="json"),
+            json=body.model_dump(mode="json") if body is not None else None,
         )
         response.raise_for_status()
         return Charge.model_validate(response.json())

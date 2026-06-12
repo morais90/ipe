@@ -80,7 +80,7 @@ class ChargesResource:
     def get_charge(
         self,
         charge_id: UUID,
-        expand: list | None = None,
+        expand: list[str] | None = None,
     ) -> Charge:
         """Retrieve a charge
 
@@ -168,7 +168,7 @@ class AsyncChargesResource:
     async def get_charge(
         self,
         charge_id: UUID,
-        expand: list | None = None,
+        expand: list[str] | None = None,
     ) -> Charge:
         """Retrieve a charge
 
