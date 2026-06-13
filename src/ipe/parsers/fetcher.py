@@ -6,6 +6,8 @@ import yaml
 
 from ipe.core.exceptions import NetworkError, ValidationError
 
+_MAX_SPEC_BYTES = 25 * 1024 * 1024
+
 
 def fetch_spec(source: str) -> dict[str, Any]:
     if source.startswith(("https://", "http://")):
@@ -34,7 +36,9 @@ def _fetch_url(url: str) -> dict[str, Any]:
         )
 
     try:
-        response = httpx.get(url, follow_redirects=True, timeout=30.0)
+        content = _download(url)
+    except NetworkError:
+        raise
     except httpx.HTTPError as exc:
         raise NetworkError(
             f"Failed to fetch spec from {url}",
@@ -42,15 +46,50 @@ def _fetch_url(url: str) -> dict[str, Any]:
             url=url,
         ) from exc
 
-    if response.status_code != 200:
-        raise NetworkError(
-            f"HTTP {response.status_code} when fetching spec",
-            "Verify the URL points to a valid OpenAPI specification",
-            url=url,
-            status_code=response.status_code,
-        )
+    return _parse_content(content, source=url)
 
-    return _parse_content(response.text, source=url)
+
+def _download(url: str) -> str:
+    with httpx.stream("GET", url, follow_redirects=True, timeout=30.0) as response:
+        if not str(response.url).startswith("https://"):
+            raise NetworkError(
+                "Only HTTPS URLs are supported",
+                "The URL redirected to a non-HTTPS location",
+                url=url,
+            )
+
+        if response.status_code != 200:
+            raise NetworkError(
+                f"HTTP {response.status_code} when fetching spec",
+                "Verify the URL points to a valid OpenAPI specification",
+                url=url,
+                status_code=response.status_code,
+            )
+
+        body = bytearray()
+        for chunk in response.iter_bytes():
+            if len(body) + len(chunk) > _MAX_SPEC_BYTES:
+                limit_mb = _MAX_SPEC_BYTES // (1024 * 1024)
+                raise NetworkError(
+                    f"Spec exceeds the maximum size of {limit_mb} MB",
+                    "Reduce the spec size or load it from a local file",
+                    url=url,
+                )
+            body.extend(chunk)
+
+        encoding = response.encoding or "utf-8"
+
+    return _decode(body, encoding, url)
+
+
+def _decode(body: bytes | bytearray, encoding: str, url: str) -> str:
+    try:
+        return body.decode(encoding)
+    except UnicodeDecodeError as exc:
+        raise ValidationError(
+            f"Could not decode the spec from {url} as {encoding}",
+            "Check the character encoding declared by the server",
+        ) from exc
 
 
 def _parse_content(content: str, source: str) -> dict[str, Any]:
