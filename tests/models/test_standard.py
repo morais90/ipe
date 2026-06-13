@@ -31,6 +31,10 @@ class TestStandardPropertyFromSchema:
                 {"rule_type": "max_length", "value": 64},
                 {"rule_type": "pattern", "value": "^[a-z_]+$"},
             ],
+            "model_names": [],
+            "is_list": False,
+            "discriminator": None,
+            "item_primitive": None,
         }
 
     def test_extracts_numeric_bounds(self):
@@ -57,6 +61,10 @@ class TestStandardPropertyFromSchema:
                 {"rule_type": "minimum", "value": 1.0},
                 {"rule_type": "maximum", "value": 100.0},
             ],
+            "model_names": [],
+            "is_list": False,
+            "discriminator": None,
+            "item_primitive": None,
         }
 
     def test_extracts_enum_values(self):
@@ -81,7 +89,67 @@ class TestStandardPropertyFromSchema:
             "default": None,
             "enum_values": ["pending", "succeeded", "failed"],
             "validation_rules": [],
+            "model_names": [],
+            "is_list": False,
+            "discriminator": None,
+            "item_primitive": None,
         }
+
+    def test_resolves_model_reference(self):
+        schema = openapi.Schema.model_validate({"$ref": "#/components/schemas/Money"})
+
+        prop = StandardProperty.from_schema(
+            "amount", schema, required_fields=["amount"]
+        )
+
+        assert prop.model_names == ["Money"]
+        assert prop.is_list is False
+        assert prop.item_primitive is None
+
+    def test_resolves_array_of_models(self):
+        schema = openapi.Schema.model_validate(
+            {
+                "type": "array",
+                "items": {"$ref": "#/components/schemas/Charge"},
+            }
+        )
+
+        prop = StandardProperty.from_schema("data", schema, required_fields=["data"])
+
+        assert prop.is_list is True
+        assert prop.model_names == ["Charge"]
+        assert prop.item_primitive is None
+
+    def test_resolves_array_of_primitives(self):
+        schema = openapi.Schema.model_validate(
+            {
+                "type": "array",
+                "items": {"type": "string"},
+            }
+        )
+
+        prop = StandardProperty.from_schema("tags", schema, required_fields=[])
+
+        assert prop.is_list is True
+        assert prop.item_primitive == "string"
+        assert prop.model_names == []
+
+    def test_resolves_discriminated_union(self):
+        schema = openapi.Schema.model_validate(
+            {
+                "oneOf": [
+                    {"$ref": "#/components/schemas/CardDetails"},
+                    {"$ref": "#/components/schemas/PixDetails"},
+                ],
+                "discriminator": {"propertyName": "type"},
+            }
+        )
+
+        prop = StandardProperty.from_schema("details", schema, required_fields=[])
+
+        assert prop.model_names == ["CardDetails", "PixDetails"]
+        assert prop.discriminator == "type"
+        assert prop.is_list is False
 
 
 class TestStandardParameterFromParameter:
@@ -116,6 +184,10 @@ class TestStandardParameterFromParameter:
                 {"rule_type": "maximum", "value": 100.0},
                 {"rule_type": "multiple_of", "value": 5.0},
             ],
+            "model_names": [],
+            "is_list": False,
+            "discriminator": None,
+            "item_primitive": None,
         }
 
     def test_extracts_enum_values(self):
@@ -143,4 +215,27 @@ class TestStandardParameterFromParameter:
             "default": None,
             "enum_values": ["active", "archived"],
             "validation_rules": [],
+            "model_names": [],
+            "is_list": False,
+            "discriminator": None,
+            "item_primitive": None,
         }
+
+    def test_resolves_array_of_primitives(self):
+        param = openapi.Parameter.model_validate(
+            {
+                "name": "expand",
+                "in": "query",
+                "required": False,
+                "schema": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                },
+            }
+        )
+
+        result = StandardParameter.from_parameter(param)
+
+        assert result.is_list is True
+        assert result.item_primitive == "string"
+        assert result.model_names == []

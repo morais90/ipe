@@ -63,11 +63,18 @@ class StandardProperty(BaseModel):
     default: Any | None = None
     enum_values: list[Any] | None = None
     validation_rules: list[ValidationRule] = Field(default_factory=list)
+    model_names: list[str] = Field(default_factory=list)
+    is_list: bool = False
+    discriminator: str | None = None
+    item_primitive: str | None = None
 
     @classmethod
     def from_schema(
         cls, name: str, schema: openapi.Schema, required_fields: list[str]
     ) -> StandardProperty:
+        enum_values = _extract_enum_values(schema)
+        shape = _classify_schema(schema)
+
         return cls(
             name=name,
             schema_type=_resolve_type(schema),
@@ -76,8 +83,12 @@ class StandardProperty(BaseModel):
             required=name in required_fields,
             nullable=_is_nullable(schema),
             default=schema.default,
-            enum_values=_extract_enum_values(schema),
+            enum_values=enum_values,
             validation_rules=ValidationRule.from_schema(schema),
+            model_names=[] if enum_values else shape.model_names,
+            is_list=shape.is_list,
+            discriminator=shape.discriminator,
+            item_primitive=shape.primitive_type if shape.is_list else None,
         )
 
 
@@ -118,10 +129,17 @@ class StandardParameter(BaseModel):
     default: Any | None = None
     enum_values: list[Any] | None = None
     validation_rules: list[ValidationRule] = Field(default_factory=list)
+    model_names: list[str] = Field(default_factory=list)
+    is_list: bool = False
+    discriminator: str | None = None
+    item_primitive: str | None = None
 
     @classmethod
     def from_parameter(cls, param: openapi.Parameter) -> StandardParameter:
         schema = param.schema_ or openapi.Schema()
+        enum_values = _extract_enum_values(schema)
+        shape = _classify_schema(schema)
+
         return cls(
             name=param.name or "",
             location=param.in_ or "",
@@ -130,8 +148,12 @@ class StandardParameter(BaseModel):
             description=param.description,
             schema_format=schema.format,
             default=schema.default,
-            enum_values=_extract_enum_values(schema),
+            enum_values=enum_values,
             validation_rules=ValidationRule.from_schema(schema),
+            model_names=[] if enum_values else shape.model_names,
+            is_list=shape.is_list,
+            discriminator=shape.discriminator,
+            item_primitive=shape.primitive_type if shape.is_list else None,
         )
 
 

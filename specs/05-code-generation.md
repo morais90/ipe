@@ -50,7 +50,7 @@ florada_payments/
 ├── client.py                  # Main client with resource accessors
 ├── exceptions.py              # Exception hierarchy
 ├── models/
-│   ├── __init__.py            # Lazy imports via __getattr__
+│   ├── __init__.py            # Eager imports + model_rebuild
 │   ├── charge.py              # One file per schema
 │   ├── create_charge_request.py
 │   ├── customer.py
@@ -62,7 +62,7 @@ florada_payments/
     └── ...
 ```
 
-**One schema → one file.** Each model lives in its own module under `models/`. Lazy imports in `models/__init__.py` keep imports cheap.
+**One schema → one file.** Each model lives in its own module under `models/`. Cross-model references are imported under `TYPE_CHECKING`, and `models/__init__.py` imports every model and calls `model_rebuild` so those forward references resolve — including mutually recursive schemas.
 
 **One resource → one file.** Resources are grouped by nested path (see below), one file each under `resources/`.
 

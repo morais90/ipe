@@ -195,6 +195,10 @@ class TestSpecAnalyzerExtractModels:
                     "validation_rules": [
                         {"rule_type": "minimum", "value": 0.0},
                     ],
+                    "model_names": [],
+                    "is_list": False,
+                    "discriminator": None,
+                    "item_primitive": None,
                 },
                 {
                     "name": "currency",
@@ -210,6 +214,10 @@ class TestSpecAnalyzerExtractModels:
                         {"rule_type": "max_length", "value": 3},
                         {"rule_type": "pattern", "value": "^[A-Z]{3}$"},
                     ],
+                    "model_names": [],
+                    "is_list": False,
+                    "discriminator": None,
+                    "item_primitive": None,
                 },
             ],
             "required_fields": ["amount", "currency"],

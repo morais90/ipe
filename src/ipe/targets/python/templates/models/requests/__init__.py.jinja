@@ -1,22 +1,32 @@
-__all__ = [
+from __future__ import annotations
+
+{% if requests %}
+from pydantic import BaseModel
+
+from {{ module_name }}.models import _NAMESPACE as _DOMAIN_NAMESPACE
+{% endif %}
+{% for model in requests | sort(attribute="name") %}
+from {{ module_name }}.models.requests.{{ model.name | module_name }} import {{ model.name | class_name }}
+{% endfor %}
+
+__all__: list[str] = [
 {% for model in requests | sort(attribute="name") %}
     "{{ model.name | class_name }}",
 {% endfor %}
 ]
+{% if requests %}
 
-_MODULES = {
+_NAMESPACE: dict[str, type[BaseModel]] = {
+    **_DOMAIN_NAMESPACE,
 {% for model in requests | sort(attribute="name") %}
-    "{{ model.name | class_name }}": "{{ model.name | module_name }}",
+    "{{ model.name | class_name }}": {{ model.name | class_name }},
 {% endfor %}
 }
 
-
-def __getattr__(name: str):
-    """Lazy import request body schemas on first access."""
-    if name not in _MODULES:
-        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-
-    from importlib import import_module
-
-    module = import_module(f"{__name__}.{_MODULES[name]}")
-    return getattr(module, name)
+for _model in (
+{% for model in requests | sort(attribute="name") %}
+    {{ model.name | class_name }},
+{% endfor %}
+):
+    _model.model_rebuild(_types_namespace=_NAMESPACE)
+{% endif %}

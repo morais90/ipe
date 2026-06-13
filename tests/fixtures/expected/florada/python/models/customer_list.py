@@ -1,10 +1,14 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel
 
+if TYPE_CHECKING:
+    from florada_payments.models.customer import Customer
+    from florada_payments.models.pagination_meta import PaginationMeta
+
 
 class CustomerList(BaseModel):
-    data: list
-    meta: dict[str, Any]
+    data: list[Customer]
+    meta: PaginationMeta

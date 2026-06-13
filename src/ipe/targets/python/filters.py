@@ -15,6 +15,8 @@ _IMPORTABLE_TYPES: dict[str, tuple[str, str]] = {
     "Any": ("typing", "Any"),
     "Annotated": ("typing", "Annotated"),
     "Literal": ("typing", "Literal"),
+    "TYPE_CHECKING": ("typing", "TYPE_CHECKING"),
+    "BaseModel": ("pydantic", "BaseModel"),
     "Field": ("pydantic", "Field"),
 }
 
@@ -91,7 +93,7 @@ class _ResponseView:
         union = " | ".join(self.models)
 
         if self.discriminator:
-            union = f'Annotated[{union}, Field(discriminator="{self.discriminator}")]'
+            union = f"Annotated[{union}, Field(discriminator={self.discriminator!r})]"
 
         target = f"list[{union}]" if self.is_list else union
         return f"TypeAdapter({target}).validate_python(response.json())"
@@ -116,6 +118,55 @@ def response_deserialize(target: LanguageTarget, success: dict[str, Any] | None)
 def type_imports(target: LanguageTarget, properties: list[dict[str, Any]]) -> str:
     tokens = _collect_field_tokens(target, properties)
     return _build_imports_from_tokens(tokens)
+
+
+def model_imports(
+    target: LanguageTarget,
+    model: dict[str, Any],
+    module_name: str,
+) -> str:
+    properties = model.get("properties") or []
+
+    tokens = _collect_field_tokens(target, properties)
+    tokens.add("BaseModel")
+    referenced = _referenced_models(properties)
+
+    if referenced:
+        tokens.add("TYPE_CHECKING")
+
+    value_imports = _build_imports_from_tokens(tokens)
+    forward_imports = _forward_ref_imports(target, referenced, module_name)
+
+    return "\n\n".join(block for block in (value_imports, forward_imports) if block)
+
+
+def _referenced_models(properties: list[dict[str, Any]]) -> set[str]:
+    names: set[str] = set()
+
+    for prop in properties:
+        if prop.get("enum_values"):
+            continue
+        names.update(prop.get("model_names") or [])
+
+    return names
+
+
+def _forward_ref_imports(
+    target: LanguageTarget,
+    model_names: set[str],
+    module_name: str,
+) -> str:
+    if not model_names:
+        return ""
+
+    naming = target.naming
+    lines = [
+        f"    from {module_name}.models.{naming.module_name(name)} "
+        f"import {naming.class_name(name)}"
+        for name in sorted(model_names)
+    ]
+
+    return "if TYPE_CHECKING:\n" + "\n".join(lines)
 
 
 def param_type_imports(target: LanguageTarget, operations: list[dict[str, Any]]) -> str:
@@ -332,9 +383,14 @@ def body_call_arg(body: dict[str, Any] | None) -> str:
         return f"{kwarg}=body"
 
     if body.get("is_list"):
-        return f'{kwarg}=[item.model_dump(mode="json") for item in body]'
+        dump = '[item.model_dump(mode="json") for item in body]'
+    else:
+        dump = 'body.model_dump(mode="json")'
 
-    return f'{kwarg}=body.model_dump(mode="json")'
+    if not body.get("required"):
+        dump = f"{dump} if body is not None else None"
+
+    return f"{kwarg}={dump}"
 
 
 _RULE_TO_FIELD_ARG: dict[str, str] = {
@@ -363,12 +419,41 @@ def field_type(target: LanguageTarget, prop: dict[str, Any]) -> str:
 
 def _resolve_base_type(target: LanguageTarget, prop: dict[str, Any]) -> str:
     enum_values = prop.get("enum_values")
-
     if enum_values:
         rendered = ", ".join(repr(v) for v in enum_values)
         return f"Literal[{rendered}]"
 
+    model_names = prop.get("model_names") or []
+    if model_names:
+        return _model_reference_type(target, prop, model_names)
+
+    if prop.get("is_list"):
+        return _list_type(target, prop)
+
     return target.resolve_type(prop.get("schema_type", ""), prop.get("schema_format"))
+
+
+def _model_reference_type(
+    target: LanguageTarget,
+    prop: dict[str, Any],
+    model_names: list[str],
+) -> str:
+    rendered = [target.naming.class_name(name) for name in model_names]
+    base = " | ".join(rendered) if len(rendered) > 1 else rendered[0]
+
+    discriminator = prop.get("discriminator")
+    if discriminator:
+        base = f"Annotated[{base}, Field(discriminator={discriminator!r})]"
+
+    return f"list[{base}]" if prop.get("is_list") else base
+
+
+def _list_type(target: LanguageTarget, prop: dict[str, Any]) -> str:
+    item_primitive = prop.get("item_primitive")
+    if item_primitive:
+        return f"list[{target.resolve_type(item_primitive, None)}]"
+
+    return "list[Any]"
 
 
 def _field_args(rules: list[dict[str, Any]]) -> str:

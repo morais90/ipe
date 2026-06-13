@@ -208,7 +208,7 @@ class TestResponseDeserializeFilter:
                     "discriminator": "kind",
                     "is_list": False,
                 },
-                'TypeAdapter(Annotated[A | B, Field(discriminator="kind")]).validate_python(response.json())',
+                "TypeAdapter(Annotated[A | B, Field(discriminator='kind')]).validate_python(response.json())",
             ),
             (
                 {"model_names": ["A", "B"], "is_list": True},
@@ -409,3 +409,187 @@ class TestFieldTypeFilter:
         )
 
         assert result == "Annotated[Literal['a', 'b'], Field(min_length=1)]"
+
+    def test_model_reference(self, template_dir: Path, output_dir: Path):
+        prop = {"model_names": ["Money"], "is_list": False}
+
+        result = render(
+            template_dir, output_dir, "{{ prop | field_type }}", {"prop": prop}
+        )
+
+        assert result == "Money"
+
+    def test_model_reference_list(self, template_dir: Path, output_dir: Path):
+        prop = {"model_names": ["Charge"], "is_list": True}
+
+        result = render(
+            template_dir, output_dir, "{{ prop | field_type }}", {"prop": prop}
+        )
+
+        assert result == "list[Charge]"
+
+    def test_discriminated_union(self, template_dir: Path, output_dir: Path):
+        prop = {"model_names": ["CardDetails", "PixDetails"], "discriminator": "type"}
+
+        result = render(
+            template_dir, output_dir, "{{ prop | field_type }}", {"prop": prop}
+        )
+
+        assert result == (
+            "Annotated[CardDetails | PixDetails, Field(discriminator='type')]"
+        )
+
+    def test_discriminated_union_list(self, template_dir: Path, output_dir: Path):
+        prop = {"model_names": ["A", "B"], "discriminator": "kind", "is_list": True}
+
+        result = render(
+            template_dir, output_dir, "{{ prop | field_type }}", {"prop": prop}
+        )
+
+        assert result == "list[Annotated[A | B, Field(discriminator='kind')]]"
+
+    def test_discriminator_with_quote_is_escaped(
+        self, template_dir: Path, output_dir: Path
+    ):
+        prop = {"model_names": ["A", "B"], "discriminator": 'ev"il'}
+
+        result = render(
+            template_dir, output_dir, "{{ prop | field_type }}", {"prop": prop}
+        )
+
+        assert result == "Annotated[A | B, Field(discriminator='ev\"il')]"
+
+    def test_array_of_primitives(self, template_dir: Path, output_dir: Path):
+        prop = {"schema_type": "array", "is_list": True, "item_primitive": "string"}
+
+        result = render(
+            template_dir, output_dir, "{{ prop | field_type }}", {"prop": prop}
+        )
+
+        assert result == "list[str]"
+
+    def test_array_without_item_type(self, template_dir: Path, output_dir: Path):
+        prop = {"schema_type": "array", "is_list": True}
+
+        result = render(
+            template_dir, output_dir, "{{ prop | field_type }}", {"prop": prop}
+        )
+
+        assert result == "list[Any]"
+
+
+class TestBodyCallArgFilter:
+    def test_json_model(self, template_dir: Path, output_dir: Path):
+        body = {
+            "content_type": "application/json",
+            "model_names": ["X"],
+            "required": True,
+        }
+
+        result = render(
+            template_dir, output_dir, "{{ body | body_call_arg }}", {"body": body}
+        )
+
+        assert result == 'json=body.model_dump(mode="json")'
+
+    def test_optional_model_guards_none(self, template_dir: Path, output_dir: Path):
+        body = {
+            "content_type": "application/json",
+            "model_names": ["X"],
+            "required": False,
+        }
+
+        result = render(
+            template_dir, output_dir, "{{ body | body_call_arg }}", {"body": body}
+        )
+
+        assert (
+            result == 'json=body.model_dump(mode="json") if body is not None else None'
+        )
+
+    def test_list_of_models(self, template_dir: Path, output_dir: Path):
+        body = {
+            "content_type": "application/json",
+            "model_names": ["X"],
+            "is_list": True,
+            "required": True,
+        }
+
+        result = render(
+            template_dir, output_dir, "{{ body | body_call_arg }}", {"body": body}
+        )
+
+        assert result == 'json=[item.model_dump(mode="json") for item in body]'
+
+    def test_form_urlencoded_kwarg(self, template_dir: Path, output_dir: Path):
+        body = {"content_type": "application/x-www-form-urlencoded", "required": True}
+
+        result = render(
+            template_dir, output_dir, "{{ body | body_call_arg }}", {"body": body}
+        )
+
+        assert result == "data=body"
+
+    def test_multipart_kwarg(self, template_dir: Path, output_dir: Path):
+        body = {"content_type": "multipart/form-data", "required": True}
+
+        result = render(
+            template_dir, output_dir, "{{ body | body_call_arg }}", {"body": body}
+        )
+
+        assert result == "files=body"
+
+    def test_unknown_content_type_kwarg(self, template_dir: Path, output_dir: Path):
+        body = {"content_type": "application/octet-stream", "required": True}
+
+        result = render(
+            template_dir, output_dir, "{{ body | body_call_arg }}", {"body": body}
+        )
+
+        assert result == "content=body"
+
+
+class TestModelImportsFilter:
+    def test_referenced_model_under_type_checking(
+        self, template_dir: Path, output_dir: Path
+    ):
+        model = {"properties": [{"model_names": ["Money"], "is_list": False}]}
+
+        result = render(
+            template_dir,
+            output_dir,
+            "{{ model | model_imports(module_name) }}",
+            {"model": model, "module_name": "api"},
+        )
+
+        assert result == (
+            "from pydantic import BaseModel\n"
+            "from typing import TYPE_CHECKING\n"
+            "\n"
+            "if TYPE_CHECKING:\n"
+            "    from api.models.money import Money"
+        )
+
+    def test_no_references_only_base_model(self, template_dir: Path, output_dir: Path):
+        model = {"properties": [{"schema_type": "string", "schema_format": None}]}
+
+        result = render(
+            template_dir,
+            output_dir,
+            "{{ model | model_imports(module_name) }}",
+            {"model": model, "module_name": "api"},
+        )
+
+        assert result == "from pydantic import BaseModel"
+
+    def test_enum_reference_is_not_imported(self, template_dir: Path, output_dir: Path):
+        model = {"properties": [{"model_names": ["Status"], "enum_values": ["a"]}]}
+
+        result = render(
+            template_dir,
+            output_dir,
+            "{{ model | model_imports(module_name) }}",
+            {"model": model, "module_name": "api"},
+        )
+
+        assert result == "from pydantic import BaseModel\nfrom typing import Literal"

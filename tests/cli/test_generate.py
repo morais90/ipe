@@ -1,3 +1,6 @@
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -68,3 +71,174 @@ class TestGenerateGoldenFiles:
             assert (tmp_path / relative).read_text() == (
                 expected_dir / relative
             ).read_text()
+
+
+_INLINE_BODY_SPEC = """
+openapi: 3.1.0
+info:
+  title: Thing API
+  version: "1.0"
+paths:
+  /things:
+    post:
+      operationId: createThing
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                amount:
+                  $ref: '#/components/schemas/Money'
+      responses:
+        '201':
+          description: created
+components:
+  schemas:
+    Money:
+      type: object
+      properties:
+        value:
+          type: integer
+"""
+
+_EXPECTED_REQUEST_MODEL = """from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from pydantic import BaseModel
+
+if TYPE_CHECKING:
+    from thing_api.models.money import Money
+
+
+class CreateThingRequest(BaseModel):
+    amount: Money | None = None
+"""
+
+_EXPECTED_REQUESTS_INIT = """from __future__ import annotations
+
+from pydantic import BaseModel
+
+from thing_api.models import _NAMESPACE as _DOMAIN_NAMESPACE
+from thing_api.models.requests.create_thing_request import CreateThingRequest
+
+__all__: list[str] = [
+    "CreateThingRequest",
+]
+
+_NAMESPACE: dict[str, type[BaseModel]] = {
+    **_DOMAIN_NAMESPACE,
+    "CreateThingRequest": CreateThingRequest,
+}
+
+for _model in (CreateThingRequest,):
+    _model.model_rebuild(_types_namespace=_NAMESPACE)
+"""
+
+
+class TestRequestModelReferences:
+    def _generate(self, tmp_path: Path) -> Path:
+        spec = tmp_path / "thing.yaml"
+        spec.write_text(_INLINE_BODY_SPEC)
+        output = tmp_path / "thing_api"
+
+        result = runner.invoke(
+            app, ["generate", str(spec), "--output", str(output), "--target", "python"]
+        )
+
+        assert result.exit_code == 0
+        return output
+
+    def test_request_model_references_domain_model(self, tmp_path: Path):
+        output = self._generate(tmp_path)
+
+        request_model = output / "models" / "requests" / "create_thing_request.py"
+
+        assert request_model.read_text() == _EXPECTED_REQUEST_MODEL
+
+    def test_requests_init_rebuilds_only_request_models(self, tmp_path: Path):
+        output = self._generate(tmp_path)
+
+        requests_init = output / "models" / "requests" / "__init__.py"
+
+        assert requests_init.read_text() == _EXPECTED_REQUESTS_INIT
+
+
+_RECURSIVE_SPEC = """
+openapi: 3.1.0
+info:
+  title: Recursive API
+  version: "1.0"
+paths:
+  /trees:
+    get:
+      operationId: getTree
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tree'
+components:
+  schemas:
+    Money:
+      type: object
+      properties:
+        value:
+          type: integer
+    Node:
+      type: object
+      properties:
+        name:
+          type: string
+        cost:
+          $ref: '#/components/schemas/Money'
+        parent:
+          $ref: '#/components/schemas/Tree'
+    Tree:
+      type: object
+      properties:
+        root:
+          $ref: '#/components/schemas/Node'
+"""
+
+_RUNTIME_CHECK = """
+from recursive_api.models.money import Money
+from recursive_api.models.node import Node
+from recursive_api.models.tree import Tree
+
+tree = Tree.model_validate(
+    {"root": {"name": "r", "cost": {"value": 7}, "parent": {"root": None}}}
+)
+
+assert isinstance(tree.root, Node)
+assert isinstance(tree.root.cost, Money)
+assert isinstance(tree.root.parent, Tree)
+assert tree.root.cost.value == 7
+"""
+
+
+class TestGeneratedModelsResolveAtRuntime:
+    def test_nested_and_recursive_models_validate(self, tmp_path: Path):
+        spec = tmp_path / "recursive.yaml"
+        spec.write_text(_RECURSIVE_SPEC)
+        output = tmp_path / "recursive_api"
+
+        result = runner.invoke(
+            app, ["generate", str(spec), "--output", str(output), "--target", "python"]
+        )
+
+        assert result.exit_code == 0
+
+        check = subprocess.run(
+            [sys.executable, "-c", _RUNTIME_CHECK],
+            capture_output=True,
+            text=True,
+            env={**os.environ, "PYTHONPATH": str(tmp_path)},
+            check=False,
+        )
+
+        assert check.returncode == 0, check.stderr
