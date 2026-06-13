@@ -93,7 +93,7 @@ class _ResponseView:
         union = " | ".join(self.models)
 
         if self.discriminator:
-            union = f'Annotated[{union}, Field(discriminator="{self.discriminator}")]'
+            union = f"Annotated[{union}, Field(discriminator={self.discriminator!r})]"
 
         target = f"list[{union}]" if self.is_list else union
         return f"TypeAdapter({target}).validate_python(response.json())"
@@ -443,7 +443,7 @@ def _model_reference_type(
 
     discriminator = prop.get("discriminator")
     if discriminator:
-        base = f'Annotated[{base}, Field(discriminator="{discriminator}")]'
+        base = f"Annotated[{base}, Field(discriminator={discriminator!r})]"
 
     return f"list[{base}]" if prop.get("is_list") else base
 

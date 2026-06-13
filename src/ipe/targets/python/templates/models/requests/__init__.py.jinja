@@ -23,6 +23,10 @@ _NAMESPACE: dict[str, type[BaseModel]] = {
 {% endfor %}
 }
 
-for _model in _NAMESPACE.values():
+for _model in (
+{% for model in requests | sort(attribute="name") %}
+    {{ model.name | class_name }},
+{% endfor %}
+):
     _model.model_rebuild(_types_namespace=_NAMESPACE)
 {% endif %}

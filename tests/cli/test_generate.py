@@ -68,3 +68,96 @@ class TestGenerateGoldenFiles:
             assert (tmp_path / relative).read_text() == (
                 expected_dir / relative
             ).read_text()
+
+
+_INLINE_BODY_SPEC = """
+openapi: 3.1.0
+info:
+  title: Thing API
+  version: "1.0"
+paths:
+  /things:
+    post:
+      operationId: createThing
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                amount:
+                  $ref: '#/components/schemas/Money'
+      responses:
+        '201':
+          description: created
+components:
+  schemas:
+    Money:
+      type: object
+      properties:
+        value:
+          type: integer
+"""
+
+_EXPECTED_REQUEST_MODEL = """from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from pydantic import BaseModel
+
+if TYPE_CHECKING:
+    from thing_api.models.money import Money
+
+
+class CreateThingRequest(BaseModel):
+    amount: Money | None = None
+"""
+
+_EXPECTED_REQUESTS_INIT = """from __future__ import annotations
+
+from pydantic import BaseModel
+
+from thing_api.models import _NAMESPACE as _DOMAIN_NAMESPACE
+from thing_api.models.requests.create_thing_request import CreateThingRequest
+
+__all__: list[str] = [
+    "CreateThingRequest",
+]
+
+_NAMESPACE: dict[str, type[BaseModel]] = {
+    **_DOMAIN_NAMESPACE,
+    "CreateThingRequest": CreateThingRequest,
+}
+
+for _model in (CreateThingRequest,):
+    _model.model_rebuild(_types_namespace=_NAMESPACE)
+"""
+
+
+class TestRequestModelReferences:
+    def _generate(self, tmp_path: Path) -> Path:
+        spec = tmp_path / "thing.yaml"
+        spec.write_text(_INLINE_BODY_SPEC)
+        output = tmp_path / "thing_api"
+
+        result = runner.invoke(
+            app, ["generate", str(spec), "--output", str(output), "--target", "python"]
+        )
+
+        assert result.exit_code == 0
+        return output
+
+    def test_request_model_references_domain_model(self, tmp_path: Path):
+        output = self._generate(tmp_path)
+
+        request_model = output / "models" / "requests" / "create_thing_request.py"
+
+        assert request_model.read_text() == _EXPECTED_REQUEST_MODEL
+
+    def test_requests_init_rebuilds_only_request_models(self, tmp_path: Path):
+        output = self._generate(tmp_path)
+
+        requests_init = output / "models" / "requests" / "__init__.py"
+
+        assert requests_init.read_text() == _EXPECTED_REQUESTS_INIT

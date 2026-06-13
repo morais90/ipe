@@ -144,7 +144,7 @@ Circular $ref chains cannot be fully resolved inline.
 Consider restructuring your schema to break the cycle.
 ```
 
-**Why strict handling:** Circular references create infinite loops during inline resolution. Rather than silently truncating or producing broken output, Ipê fails clearly. Support for circular schemas (via lazy resolution or reference markers) is a future enhancement.
+**Why strict handling:** This applies to the eager inlining of non-schema `$ref`s (parameters, responses), where a cycle cannot be expanded in place. Schema `$ref`s are never inlined — they bind lazily — so circular *model* references (e.g. `User.manager: User`, or mutually recursive schemas) are fully supported: the generated models reference each other through `TYPE_CHECKING` imports and resolve at runtime via `model_rebuild`.
 
 **Where:** `src/ipe/parsers/resolver.py`
 
