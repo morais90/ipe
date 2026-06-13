@@ -81,6 +81,8 @@ Or create a configuration file:
 - **URLs**: `https://api.example.com/openapi.yaml`
 - **Both YAML and JSON**: Auto-detection based on content
 
+Remote specs are fetched over **HTTPS only** (an `http://` URL, or a redirect to one, is rejected) and are capped at **25 MB** to bound memory; a larger response fails with a clear error.
+
 ## Generated Output
 
 See [05-code-generation.md](05-code-generation.md#generated-output-structure) for the full generated file structure and grouping rules.
