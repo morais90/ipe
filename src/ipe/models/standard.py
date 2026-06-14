@@ -221,28 +221,30 @@ class Response(BaseModel):
 
 class AuthScheme(BaseModel):
     name: str
-    type: str
-    scheme: str | None = None
+    kind: str
     location: str | None = None
-    header_name: str | None = None
+    parameter_name: str | None = None
 
     @classmethod
     def from_security_scheme(
         cls, name: str, scheme: openapi.SecurityScheme
     ) -> AuthScheme:
-        header_name: str | None = None
         if scheme.type == "apiKey":
-            header_name = scheme.name
-        elif scheme.type == "http" and scheme.scheme == "bearer":
-            header_name = "Authorization"
+            return cls(
+                name=name,
+                kind="apikey",
+                location=scheme.in_,
+                parameter_name=scheme.name,
+            )
 
-        return cls(
-            name=name,
-            type=scheme.type,
-            scheme=scheme.scheme,
-            location=scheme.in_,
-            header_name=header_name,
-        )
+        return cls(name=name, kind=_auth_kind(scheme))
+
+
+def _auth_kind(scheme: openapi.SecurityScheme) -> str:
+    if scheme.type == "http":
+        return "basic" if scheme.scheme == "basic" else "bearer"
+
+    return "oauth2"
 
 
 class StandardOperation(BaseModel):

@@ -62,6 +62,23 @@ class TestPythonNamingFieldName:
     def test_conversions(self, naming: PythonNaming, raw: str, expected: str):
         assert naming.field_name(raw) == expected
 
+    @pytest.mark.parametrize(
+        ("raw", "expected"),
+        [
+            ('a"b', "a_b"),
+            ("x=open(1)", "x_open_1_"),
+            ("2fa", "_2fa"),
+            ("@!#", "___"),
+        ],
+    )
+    def test_produces_valid_identifiers(
+        self, naming: PythonNaming, raw: str, expected: str
+    ):
+        result = naming.field_name(raw)
+
+        assert result == expected
+        assert result.isidentifier()
+
 
 class TestPythonNamingModuleName:
     @pytest.mark.parametrize(

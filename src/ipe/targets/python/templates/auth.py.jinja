@@ -1,0 +1,23 @@
+from __future__ import annotations
+{% set imports = auth_schemes | auth_imports %}
+{% if imports %}
+
+{{ imports }}
+{% endif %}
+
+
+def build_auth(
+{% if auth_schemes %}
+    *,
+{{ auth_schemes | auth_params | indent(4, first=True) }}
+{% endif %}
+) -> tuple[dict[str, str], dict[str, str], dict[str, str]]:
+    headers: dict[str, str] = {}
+    params: dict[str, str] = {}
+    cookies: dict[str, str] = {}
+{% if auth_schemes %}
+
+{{ auth_schemes | auth_apply | indent(4, first=True) }}
+{% endif %}
+
+    return headers, params, cookies

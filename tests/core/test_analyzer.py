@@ -239,10 +239,9 @@ class TestSpecAnalyzerExtractAuth:
         )
         assert bearer.model_dump() == {
             "name": "bearerAuth",
-            "type": "http",
-            "scheme": "bearer",
+            "kind": "bearer",
             "location": None,
-            "header_name": "Authorization",
+            "parameter_name": None,
         }
 
     def test_api_key_auth(self, florada_blueprint: APIBlueprint):
@@ -251,10 +250,18 @@ class TestSpecAnalyzerExtractAuth:
         )
         assert api_key.model_dump() == {
             "name": "apiKeyAuth",
-            "type": "apiKey",
-            "scheme": None,
+            "kind": "apikey",
             "location": "header",
-            "header_name": "X-Florada-Key",
+            "parameter_name": "X-Florada-Key",
+        }
+
+    def test_oauth2_auth(self, florada_blueprint: APIBlueprint):
+        oauth2 = next(s for s in florada_blueprint.auth_schemes if s.name == "oauth2")
+        assert oauth2.model_dump() == {
+            "name": "oauth2",
+            "kind": "oauth2",
+            "location": None,
+            "parameter_name": None,
         }
 
 

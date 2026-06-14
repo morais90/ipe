@@ -6,7 +6,7 @@ from typing import Any
 from ipe.core.exceptions import IpeError
 from ipe.core.formatter import Formatter, FormatterConfig
 from ipe.models.standard import StandardOperation
-from ipe.targets.python import filters
+from ipe.targets.python import auth, filters
 from ipe.targets.python.formatters import RuffFormatter
 from ipe.targets.python.naming import PythonNaming
 from ipe.utils.grouping import by_nested_path
@@ -97,4 +97,8 @@ class PythonTarget:
             "body_type": partial(filters.body_type, self),
             "body_call_arg": filters.body_call_arg,
             "field_type": partial(filters.field_type, self),
+            "auth_params": partial(auth.auth_params, self),
+            "auth_call_kwargs": partial(auth.auth_call_kwargs, self),
+            "auth_apply": partial(auth.auth_apply, self),
+            "auth_imports": partial(auth.auth_imports, self),
         }
