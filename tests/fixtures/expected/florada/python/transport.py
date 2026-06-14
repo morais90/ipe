@@ -90,6 +90,7 @@ class HttpxTransport:
         headers: dict[str, str] | None = None,
         params: dict[str, str] | None = None,
         cookies: dict[str, str] | None = None,
+        auth: httpx.Auth | None = None,
         timeout: float = 30.0,
     ) -> None:
         self._client = httpx.Client(
@@ -97,6 +98,7 @@ class HttpxTransport:
             headers=headers,
             params=params,
             cookies=cookies,
+            auth=auth,
             timeout=timeout,
         )
 
@@ -137,6 +139,7 @@ class AsyncHttpxTransport:
         headers: dict[str, str] | None = None,
         params: dict[str, str] | None = None,
         cookies: dict[str, str] | None = None,
+        auth: httpx.Auth | None = None,
         timeout: float = 30.0,
     ) -> None:
         self._client = httpx.AsyncClient(
@@ -144,6 +147,7 @@ class AsyncHttpxTransport:
             headers=headers,
             params=params,
             cookies=cookies,
+            auth=auth,
             timeout=timeout,
         )
 

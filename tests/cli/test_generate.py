@@ -242,3 +242,139 @@ class TestGeneratedModelsResolveAtRuntime:
         )
 
         assert check.returncode == 0, check.stderr
+
+
+_CLIENT_CREDENTIALS_SPEC = """
+openapi: 3.1.0
+info:
+  title: CC API
+  version: "1.0"
+paths:
+  /x:
+    get:
+      operationId: getX
+      responses:
+        '200':
+          description: ok
+components:
+  securitySchemes:
+    svc:
+      type: oauth2
+      flows:
+        clientCredentials:
+          tokenUrl: https://auth.example.com/token
+          scopes: {}
+"""
+
+_TOKEN_FETCH_CHECK = """
+import httpx
+import respx
+from cc_api.auth import build_auth
+
+
+def make_auth():
+    return build_auth(svc_client_id="cid", svc_client_secret="sec")[3]
+
+
+# A valid token is fetched once, applied as Bearer, and cached across requests.
+with respx.mock:
+    token = respx.post("https://auth.example.com/token").mock(
+        return_value=httpx.Response(200, json={"access_token": "T", "expires_in": 3600})
+    )
+    api = respx.get("https://api.example.com/x").mock(return_value=httpx.Response(200))
+
+    with httpx.Client(auth=make_auth()) as client:
+        client.get("https://api.example.com/x")
+        client.get("https://api.example.com/x")
+
+    assert token.call_count == 1, token.call_count
+    assert b"grant_type=client_credentials" in token.calls[0].request.content
+    assert api.calls[0].request.headers["Authorization"] == "Bearer T"
+
+# A token at or under the refresh buffer is re-fetched on the next request.
+with respx.mock:
+    token = respx.post("https://auth.example.com/token").mock(
+        return_value=httpx.Response(200, json={"access_token": "T", "expires_in": 10})
+    )
+    respx.get("https://api.example.com/x").mock(return_value=httpx.Response(200))
+
+    with httpx.Client(auth=make_auth()) as client:
+        client.get("https://api.example.com/x")
+        client.get("https://api.example.com/x")
+
+    assert token.call_count == 2, token.call_count
+
+# Concurrent requests on a cold auth fetch the token once, not once each.
+import threading
+import time
+
+
+def _slow_token(request):
+    time.sleep(0.05)
+    return httpx.Response(200, json={"access_token": "T", "expires_in": 3600})
+
+
+with respx.mock:
+    token = respx.post("https://auth.example.com/token").mock(side_effect=_slow_token)
+    respx.get("https://api.example.com/x").mock(return_value=httpx.Response(200))
+
+    with httpx.Client(auth=make_auth()) as client:
+        threads = [
+            threading.Thread(target=lambda: client.get("https://api.example.com/x"))
+            for _ in range(5)
+        ]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+    assert token.call_count == 1, token.call_count
+
+# The async client fetches the token and applies it too.
+import asyncio
+
+
+async def _amain():
+    with respx.mock:
+        token = respx.post("https://auth.example.com/token").mock(
+            return_value=httpx.Response(
+                200, json={"access_token": "A", "expires_in": 3600}
+            )
+        )
+        api = respx.get("https://api.example.com/x").mock(
+            return_value=httpx.Response(200)
+        )
+
+        async with httpx.AsyncClient(auth=make_auth()) as client:
+            await client.get("https://api.example.com/x")
+            await client.get("https://api.example.com/x")
+
+        assert token.call_count == 1, token.call_count
+        assert api.calls[0].request.headers["Authorization"] == "Bearer A"
+
+
+asyncio.run(_amain())
+"""
+
+
+class TestClientCredentialsAuth:
+    def test_token_is_fetched_and_applied(self, tmp_path: Path):
+        spec = tmp_path / "cc.yaml"
+        spec.write_text(_CLIENT_CREDENTIALS_SPEC)
+        output = tmp_path / "cc_api"
+
+        result = runner.invoke(
+            app, ["generate", str(spec), "--output", str(output), "--target", "python"]
+        )
+
+        assert result.exit_code == 0
+
+        check = subprocess.run(
+            [sys.executable, "-c", _TOKEN_FETCH_CHECK],
+            capture_output=True,
+            text=True,
+            env={**os.environ, "PYTHONPATH": str(tmp_path)},
+            check=False,
+        )
+
+        assert check.returncode == 0, check.stderr

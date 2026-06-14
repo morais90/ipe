@@ -25,6 +25,9 @@ class Credential:
         if kind == "basic":
             return BasicCredential(base)
 
+        if kind == "oauth2_client_credentials":
+            return OAuth2ClientCredentialsCredential(base, scheme["token_url"])
+
         return BearerCredential(base)
 
     def param_names(self) -> list[str]:
@@ -84,6 +87,23 @@ class BasicCredential(Credential):
         )
 
 
+class OAuth2ClientCredentialsCredential(Credential):
+    def __init__(self, base: str, token_url: str) -> None:
+        super().__init__(base)
+        self.token_url = token_url
+
+    def param_names(self) -> list[str]:
+        return [f"{self.base}_client_id", f"{self.base}_client_secret"]
+
+    def apply(self) -> str:
+        client_id, client_secret = self.param_names()
+        return (
+            f"if {client_id} is not None and {client_secret} is not None:\n"
+            f"    auth = OAuth2ClientCredentials("
+            f"{self.token_url!r}, {client_id}, {client_secret})"
+        )
+
+
 def _credentials(
     target: LanguageTarget, schemes: list[dict[str, Any]]
 ) -> list[Credential]:
@@ -136,3 +156,12 @@ def auth_imports(target: LanguageTarget, schemes: list[dict[str, Any]]) -> str:
         for line in credential.imports()
     }
     return "\n".join(sorted(lines))
+
+
+def has_client_credentials(
+    target: LanguageTarget, schemes: list[dict[str, Any]]
+) -> bool:
+    return any(
+        isinstance(credential, OAuth2ClientCredentialsCredential)
+        for credential in _credentials(target, schemes)
+    )

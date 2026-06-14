@@ -239,6 +239,7 @@ class TestAPIBlueprint:
                     "kind": "apikey",
                     "location": "header",
                     "parameter_name": "X-API-Key",
+                    "token_url": None,
                 },
             ],
             "body_schemas": [],

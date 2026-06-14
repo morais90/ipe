@@ -618,6 +618,16 @@ components:
     oauth2:
       type: oauth2
       flows:
+        clientCredentials:
+          tokenUrl: https://auth.florada.dev/oauth/token
+          refreshUrl: https://auth.florada.dev/oauth/refresh
+          scopes:
+            charges:read: Read charges
+            charges:write: Create charges
+            customers:read: Read customers
+            customers:write: Manage customers
+            subscriptions:read: Read subscriptions
+            subscriptions:write: Manage subscriptions
         authorizationCode:
           authorizationUrl: https://auth.florada.dev/authorize
           tokenUrl: https://auth.florada.dev/token

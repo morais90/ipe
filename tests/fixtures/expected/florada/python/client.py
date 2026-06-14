@@ -80,21 +80,24 @@ class FloradaPaymentsClient:
         *,
         bearer_auth: str | None = None,
         api_key_auth: str | None = None,
-        oauth2: str | None = None,
+        oauth2_client_id: str | None = None,
+        oauth2_client_secret: str | None = None,
         timeout: float = 30.0,
         transport: Transport | None = None,
     ) -> None:
         if transport is None:
-            headers, params, cookies = build_auth(
+            headers, params, cookies, auth = build_auth(
                 bearer_auth=bearer_auth,
                 api_key_auth=api_key_auth,
-                oauth2=oauth2,
+                oauth2_client_id=oauth2_client_id,
+                oauth2_client_secret=oauth2_client_secret,
             )
             transport = HttpxTransport(
                 base_url,
                 headers=headers,
                 params=params,
                 cookies=cookies,
+                auth=auth,
                 timeout=timeout,
             )
         self._transport = transport
@@ -152,21 +155,24 @@ class AsyncFloradaPaymentsClient:
         *,
         bearer_auth: str | None = None,
         api_key_auth: str | None = None,
-        oauth2: str | None = None,
+        oauth2_client_id: str | None = None,
+        oauth2_client_secret: str | None = None,
         timeout: float = 30.0,
         transport: AsyncTransport | None = None,
     ) -> None:
         if transport is None:
-            headers, params, cookies = build_auth(
+            headers, params, cookies, auth = build_auth(
                 bearer_auth=bearer_auth,
                 api_key_auth=api_key_auth,
-                oauth2=oauth2,
+                oauth2_client_id=oauth2_client_id,
+                oauth2_client_secret=oauth2_client_secret,
             )
             transport = AsyncHttpxTransport(
                 base_url,
                 headers=headers,
                 params=params,
                 cookies=cookies,
+                auth=auth,
                 timeout=timeout,
             )
         self._transport = transport

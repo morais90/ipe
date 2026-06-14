@@ -224,6 +224,7 @@ class AuthScheme(BaseModel):
     kind: str
     location: str | None = None
     parameter_name: str | None = None
+    token_url: str | None = None
 
     @classmethod
     def from_security_scheme(
@@ -237,6 +238,16 @@ class AuthScheme(BaseModel):
                 parameter_name=scheme.name,
             )
 
+        if scheme.type == "oauth2":
+            token_url = _client_credentials_token_url(scheme)
+            if token_url:
+                return cls(
+                    name=name,
+                    kind="oauth2_client_credentials",
+                    token_url=token_url,
+                )
+            return cls(name=name, kind="oauth2")
+
         return cls(name=name, kind=_auth_kind(scheme))
 
 
@@ -245,6 +256,13 @@ def _auth_kind(scheme: openapi.SecurityScheme) -> str:
         return "basic" if scheme.scheme == "basic" else "bearer"
 
     return "oauth2"
+
+
+def _client_credentials_token_url(scheme: openapi.SecurityScheme) -> str | None:
+    if scheme.flows is None or scheme.flows.client_credentials is None:
+        return None
+
+    return scheme.flows.client_credentials.token_url
 
 
 class StandardOperation(BaseModel):
