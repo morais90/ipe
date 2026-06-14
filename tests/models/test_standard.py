@@ -1,4 +1,4 @@
-from ipe.models.standard import StandardParameter, StandardProperty
+from ipe.models.standard import AuthScheme, StandardParameter, StandardProperty
 from ipe.parsers import models as openapi
 
 
@@ -239,3 +239,63 @@ class TestStandardParameterFromParameter:
         assert result.is_list is True
         assert result.item_primitive == "string"
         assert result.model_names == []
+
+
+class TestAuthSchemeFromSecurityScheme:
+    def test_bearer(self):
+        scheme = openapi.SecurityScheme.model_validate(
+            {"type": "http", "scheme": "bearer"}
+        )
+
+        result = AuthScheme.from_security_scheme("bearerAuth", scheme)
+
+        assert result.model_dump() == {
+            "name": "bearerAuth",
+            "kind": "bearer",
+            "location": None,
+            "parameter_name": None,
+        }
+
+    def test_basic(self):
+        scheme = openapi.SecurityScheme.model_validate(
+            {"type": "http", "scheme": "basic"}
+        )
+
+        result = AuthScheme.from_security_scheme("basicAuth", scheme)
+
+        assert result.kind == "basic"
+
+    def test_api_key_in_header(self):
+        scheme = openapi.SecurityScheme.model_validate(
+            {"type": "apiKey", "in": "header", "name": "X-API-Key"}
+        )
+
+        result = AuthScheme.from_security_scheme("apiKeyAuth", scheme)
+
+        assert result.model_dump() == {
+            "name": "apiKeyAuth",
+            "kind": "apikey",
+            "location": "header",
+            "parameter_name": "X-API-Key",
+        }
+
+    def test_api_key_in_query(self):
+        scheme = openapi.SecurityScheme.model_validate(
+            {"type": "apiKey", "in": "query", "name": "api_key"}
+        )
+
+        result = AuthScheme.from_security_scheme("apiKeyAuth", scheme)
+
+        assert result.model_dump() == {
+            "name": "apiKeyAuth",
+            "kind": "apikey",
+            "location": "query",
+            "parameter_name": "api_key",
+        }
+
+    def test_oauth2(self):
+        scheme = openapi.SecurityScheme.model_validate({"type": "oauth2"})
+
+        result = AuthScheme.from_security_scheme("oauth2", scheme)
+
+        assert result.kind == "oauth2"

@@ -12,6 +12,9 @@ from {{ module_name }}.transport import (
     HttpxTransport,
     Transport,
 )
+{% if auth_schemes %}
+from {{ module_name }}.auth import build_auth
+{% endif %}
 
 
 class {{ api_name | class_name }}Client:
@@ -32,13 +35,27 @@ class {{ api_name | class_name }}Client:
         self,
         base_url: str = "{{ base_url or 'https://api.example.com' }}",
         *,
-        api_key: str | None = None,
+{% if auth_schemes %}
+{{ auth_schemes | auth_params | indent(8, first=True) }}
+{% endif %}
         timeout: float = 30.0,
         transport: Transport | None = None,
     ) -> None:
         if transport is None:
-            headers = {"Authorization": f"Bearer {api_key}"} if api_key else None
-            transport = HttpxTransport(base_url, headers=headers, timeout=timeout)
+{% if auth_schemes %}
+            headers, params, cookies = build_auth(
+{{ auth_schemes | auth_call_kwargs | indent(16, first=True) }}
+            )
+            transport = HttpxTransport(
+                base_url,
+                headers=headers,
+                params=params,
+                cookies=cookies,
+                timeout=timeout,
+            )
+{% else %}
+            transport = HttpxTransport(base_url, timeout=timeout)
+{% endif %}
         self._transport = transport
 
 {% for resource_path in resources.keys() | sort %}
@@ -73,13 +90,27 @@ class Async{{ api_name | class_name }}Client:
         self,
         base_url: str = "{{ base_url or 'https://api.example.com' }}",
         *,
-        api_key: str | None = None,
+{% if auth_schemes %}
+{{ auth_schemes | auth_params | indent(8, first=True) }}
+{% endif %}
         timeout: float = 30.0,
         transport: AsyncTransport | None = None,
     ) -> None:
         if transport is None:
-            headers = {"Authorization": f"Bearer {api_key}"} if api_key else None
-            transport = AsyncHttpxTransport(base_url, headers=headers, timeout=timeout)
+{% if auth_schemes %}
+            headers, params, cookies = build_auth(
+{{ auth_schemes | auth_call_kwargs | indent(16, first=True) }}
+            )
+            transport = AsyncHttpxTransport(
+                base_url,
+                headers=headers,
+                params=params,
+                cookies=cookies,
+                timeout=timeout,
+            )
+{% else %}
+            transport = AsyncHttpxTransport(base_url, timeout=timeout)
+{% endif %}
         self._transport = transport
 
 {% for resource_path in resources.keys() | sort %}

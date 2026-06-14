@@ -84,9 +84,9 @@ def full_blueprint() -> APIBlueprint:
         auth_schemes=[
             AuthScheme(
                 name="api_key",
-                type="apiKey",
+                kind="apikey",
                 location="header",
-                header_name="X-API-Key",
+                parameter_name="X-API-Key",
             ),
         ],
         module_name="petstore",
@@ -236,10 +236,9 @@ class TestAPIBlueprint:
             "auth_schemes": [
                 {
                     "name": "api_key",
-                    "type": "apiKey",
-                    "scheme": None,
+                    "kind": "apikey",
                     "location": "header",
-                    "header_name": "X-API-Key",
+                    "parameter_name": "X-API-Key",
                 },
             ],
             "body_schemas": [],

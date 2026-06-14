@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from florada_payments.auth import build_auth
 from florada_payments.resources.charges import (
     AsyncChargesResource,
     ChargesResource,
@@ -77,13 +78,25 @@ class FloradaPaymentsClient:
         self,
         base_url: str = "https://api.florada.dev/v1",
         *,
-        api_key: str | None = None,
+        bearer_auth: str | None = None,
+        api_key_auth: str | None = None,
+        oauth2: str | None = None,
         timeout: float = 30.0,
         transport: Transport | None = None,
     ) -> None:
         if transport is None:
-            headers = {"Authorization": f"Bearer {api_key}"} if api_key else None
-            transport = HttpxTransport(base_url, headers=headers, timeout=timeout)
+            headers, params, cookies = build_auth(
+                bearer_auth=bearer_auth,
+                api_key_auth=api_key_auth,
+                oauth2=oauth2,
+            )
+            transport = HttpxTransport(
+                base_url,
+                headers=headers,
+                params=params,
+                cookies=cookies,
+                timeout=timeout,
+            )
         self._transport = transport
 
         self.charges = ChargesResource(self._transport)
@@ -137,13 +150,25 @@ class AsyncFloradaPaymentsClient:
         self,
         base_url: str = "https://api.florada.dev/v1",
         *,
-        api_key: str | None = None,
+        bearer_auth: str | None = None,
+        api_key_auth: str | None = None,
+        oauth2: str | None = None,
         timeout: float = 30.0,
         transport: AsyncTransport | None = None,
     ) -> None:
         if transport is None:
-            headers = {"Authorization": f"Bearer {api_key}"} if api_key else None
-            transport = AsyncHttpxTransport(base_url, headers=headers, timeout=timeout)
+            headers, params, cookies = build_auth(
+                bearer_auth=bearer_auth,
+                api_key_auth=api_key_auth,
+                oauth2=oauth2,
+            )
+            transport = AsyncHttpxTransport(
+                base_url,
+                headers=headers,
+                params=params,
+                cookies=cookies,
+                timeout=timeout,
+            )
         self._transport = transport
 
         self.charges = AsyncChargesResource(self._transport)
