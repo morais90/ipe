@@ -242,6 +242,7 @@ class TestSpecAnalyzerExtractAuth:
             "kind": "bearer",
             "location": None,
             "parameter_name": None,
+            "token_url": None,
         }
 
     def test_api_key_auth(self, florada_blueprint: APIBlueprint):
@@ -253,15 +254,17 @@ class TestSpecAnalyzerExtractAuth:
             "kind": "apikey",
             "location": "header",
             "parameter_name": "X-Florada-Key",
+            "token_url": None,
         }
 
-    def test_oauth2_auth(self, florada_blueprint: APIBlueprint):
+    def test_oauth2_client_credentials_auth(self, florada_blueprint: APIBlueprint):
         oauth2 = next(s for s in florada_blueprint.auth_schemes if s.name == "oauth2")
         assert oauth2.model_dump() == {
             "name": "oauth2",
-            "kind": "oauth2",
+            "kind": "oauth2_client_credentials",
             "location": None,
             "parameter_name": None,
+            "token_url": "https://auth.florada.dev/oauth/token",
         }
 
 

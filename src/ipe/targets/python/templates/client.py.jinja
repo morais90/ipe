@@ -43,7 +43,7 @@ class {{ api_name | class_name }}Client:
     ) -> None:
         if transport is None:
 {% if auth_schemes %}
-            headers, params, cookies = build_auth(
+            headers, params, cookies{% if auth_schemes | has_client_credentials %}, auth{% endif %} = build_auth(
 {{ auth_schemes | auth_call_kwargs | indent(16, first=True) }}
             )
             transport = HttpxTransport(
@@ -51,6 +51,9 @@ class {{ api_name | class_name }}Client:
                 headers=headers,
                 params=params,
                 cookies=cookies,
+{% if auth_schemes | has_client_credentials %}
+                auth=auth,
+{% endif %}
                 timeout=timeout,
             )
 {% else %}
@@ -98,7 +101,7 @@ class Async{{ api_name | class_name }}Client:
     ) -> None:
         if transport is None:
 {% if auth_schemes %}
-            headers, params, cookies = build_auth(
+            headers, params, cookies{% if auth_schemes | has_client_credentials %}, auth{% endif %} = build_auth(
 {{ auth_schemes | auth_call_kwargs | indent(16, first=True) }}
             )
             transport = AsyncHttpxTransport(
@@ -106,6 +109,9 @@ class Async{{ api_name | class_name }}Client:
                 headers=headers,
                 params=params,
                 cookies=cookies,
+{% if auth_schemes | has_client_credentials %}
+                auth=auth,
+{% endif %}
                 timeout=timeout,
             )
 {% else %}

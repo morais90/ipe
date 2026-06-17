@@ -101,4 +101,5 @@ class PythonTarget:
             "auth_call_kwargs": partial(auth.auth_call_kwargs, self),
             "auth_apply": partial(auth.auth_apply, self),
             "auth_imports": partial(auth.auth_imports, self),
+            "has_client_credentials": partial(auth.has_client_credentials, self),
         }

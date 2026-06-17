@@ -159,3 +159,33 @@ class TestAuthImports:
         schemes = [{"name": "bearerAuth", "kind": "bearer"}]
 
         assert auth.auth_imports(TARGET, schemes) == ""
+
+
+_CC_SCHEME = {
+    "name": "oauth2",
+    "kind": "oauth2_client_credentials",
+    "token_url": "https://e.com/oauth/token",
+}
+
+
+class TestClientCredentials:
+    def test_params_are_client_id_and_secret(self):
+        assert auth.auth_params(TARGET, [_CC_SCHEME]) == (
+            "oauth2_client_id: str | None = None,\n"
+            "oauth2_client_secret: str | None = None,"
+        )
+
+    def test_apply_builds_the_auth_object(self):
+        assert auth.auth_apply(TARGET, [_CC_SCHEME]) == (
+            "if oauth2_client_id is not None and oauth2_client_secret is not None:\n"
+            "    auth = OAuth2ClientCredentials("
+            "'https://e.com/oauth/token', oauth2_client_id, oauth2_client_secret)"
+        )
+
+    def test_detected_by_has_client_credentials(self):
+        assert auth.has_client_credentials(TARGET, [_CC_SCHEME]) is True
+
+    def test_absent_for_static_schemes(self):
+        schemes = [{"name": "bearerAuth", "kind": "bearer"}]
+
+        assert auth.has_client_credentials(TARGET, schemes) is False

@@ -254,6 +254,7 @@ class TestAuthSchemeFromSecurityScheme:
             "kind": "bearer",
             "location": None,
             "parameter_name": None,
+            "token_url": None,
         }
 
     def test_basic(self):
@@ -277,6 +278,7 @@ class TestAuthSchemeFromSecurityScheme:
             "kind": "apikey",
             "location": "header",
             "parameter_name": "X-API-Key",
+            "token_url": None,
         }
 
     def test_api_key_in_query(self):
@@ -291,11 +293,42 @@ class TestAuthSchemeFromSecurityScheme:
             "kind": "apikey",
             "location": "query",
             "parameter_name": "api_key",
+            "token_url": None,
         }
 
-    def test_oauth2(self):
-        scheme = openapi.SecurityScheme.model_validate({"type": "oauth2"})
+    def test_oauth2_without_client_credentials(self):
+        scheme = openapi.SecurityScheme.model_validate(
+            {
+                "type": "oauth2",
+                "flows": {
+                    "authorizationCode": {
+                        "authorizationUrl": "https://e.com/authorize",
+                        "tokenUrl": "https://e.com/token",
+                        "scopes": {},
+                    }
+                },
+            }
+        )
 
         result = AuthScheme.from_security_scheme("oauth2", scheme)
 
         assert result.kind == "oauth2"
+        assert result.token_url is None
+
+    def test_oauth2_client_credentials(self):
+        scheme = openapi.SecurityScheme.model_validate(
+            {
+                "type": "oauth2",
+                "flows": {
+                    "clientCredentials": {
+                        "tokenUrl": "https://e.com/oauth/token",
+                        "scopes": {"read": "Read"},
+                    }
+                },
+            }
+        )
+
+        result = AuthScheme.from_security_scheme("oauth2", scheme)
+
+        assert result.kind == "oauth2_client_credentials"
+        assert result.token_url == "https://e.com/oauth/token"
