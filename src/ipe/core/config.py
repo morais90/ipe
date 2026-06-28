@@ -140,6 +140,49 @@ def load_config(config_path: Path) -> IpeConfig:
     return IpeConfig.model_validate(config_data)
 
 
+def resolve_config(
+    config_path: Path,
+    *,
+    spec: str | None = None,
+    output: Path | None = None,
+    target: str | None = None,
+    module_name: str | None = None,
+) -> IpeConfig:
+    """Resolve configuration from CLI overrides, ``ipe.json``, then defaults.
+
+    Parameters
+    ----------
+    config_path : Path
+        Path to the ``ipe.json`` file; used as the baseline when it exists.
+    spec : str, optional
+        CLI override for the spec path or URL.
+    output : Path, optional
+        CLI override for the output directory.
+    target : str, optional
+        CLI override for the language target.
+    module_name : str, optional
+        CLI override for the generated module name.
+
+    Returns
+    -------
+    IpeConfig
+        The merged configuration, with CLI overrides winning over the file,
+        and the file winning over built-in defaults.
+    """
+    base = load_config(config_path) if config_path.exists() else IpeConfig()
+    data = base.model_dump()
+
+    overrides = {
+        "spec_path": spec,
+        "output_dir": output,
+        "target": target,
+        "module_name": module_name,
+    }
+    data.update({key: value for key, value in overrides.items() if value is not None})
+
+    return IpeConfig.model_validate(data)
+
+
 def create_default_config(
     spec_path: str = "",
     output_dir: str = "./output",
