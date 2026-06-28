@@ -1,3 +1,4 @@
+import json
 import os
 import subprocess
 import sys
@@ -12,6 +13,72 @@ FIXTURES_DIR = Path(__file__).parent.parent / "fixtures"
 EXPECTED_DIR = FIXTURES_DIR / "expected"
 
 runner = CliRunner()
+
+
+class TestConfigResolution:
+    def test_reads_spec_and_output_from_ipe_json(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "ipe.json").write_text(
+            json.dumps(
+                {
+                    "spec_path": str(FIXTURES_DIR / "florada.yaml"),
+                    "output_dir": "out",
+                }
+            )
+        )
+
+        result = runner.invoke(app, ["generate"])
+
+        assert result.exit_code == 0
+        assert (tmp_path / "out" / "client.py").exists()
+
+    def test_cli_arguments_override_ipe_json(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "ipe.json").write_text(
+            json.dumps({"spec_path": "/wrong.yaml", "output_dir": "from_config"})
+        )
+        spec = str(FIXTURES_DIR / "florada.yaml")
+
+        result = runner.invoke(app, ["generate", spec, "--output", "from_cli"])
+
+        assert result.exit_code == 0
+        assert (tmp_path / "from_cli" / "client.py").exists()
+        assert not (tmp_path / "from_config").exists()
+
+    def test_missing_spec_exits_with_usage_code(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        monkeypatch.chdir(tmp_path)
+
+        result = runner.invoke(app, ["generate"])
+
+        assert result.exit_code == 2
+
+    def test_corrupt_config_reports_a_clean_error(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "ipe.json").write_text("{not valid json")
+
+        result = runner.invoke(app, ["generate"])
+
+        assert result.exit_code == 1
+        assert "Invalid JSON" in result.output
+
+    def test_invalid_module_override_reports_a_clean_error(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        monkeypatch.chdir(tmp_path)
+        spec = str(FIXTURES_DIR / "florada.yaml")
+
+        result = runner.invoke(app, ["generate", spec, "-o", "out", "-m", "my-client"])
+
+        assert result.exit_code == 1
+        assert "Invalid configuration" in result.output
 
 
 class TestGenerateCommandErrors:
