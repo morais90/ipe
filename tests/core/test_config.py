@@ -5,7 +5,36 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from ipe.core.config import IpeConfig, create_default_config, load_config, save_config
+from ipe.core.config import (
+    IpeConfig,
+    create_default_config,
+    load_config,
+    resolve_config,
+    save_config,
+)
+
+
+class TestResolveConfig:
+    def test_cli_overrides_win_over_file(self, tmp_path: Path):
+        config_path = tmp_path / "ipe.json"
+        config_path.write_text(
+            json.dumps(
+                {"spec_path": "file.yaml", "target": "python", "output_dir": "fout"}
+            )
+        )
+
+        result = resolve_config(config_path, spec="cli.yaml")
+
+        assert result.spec_path == "cli.yaml"
+        assert result.target == "python"
+        assert result.output_dir == Path("fout")
+
+    def test_falls_back_to_defaults_without_file(self, tmp_path: Path):
+        result = resolve_config(tmp_path / "missing.json", spec="x.yaml")
+
+        assert result.spec_path == "x.yaml"
+        assert result.target == "python"
+        assert result.output_dir == Path("output")
 
 
 @pytest.fixture

@@ -6,6 +6,7 @@ from typing import Any
 
 from rich.console import Console, Group, RenderableType
 from rich.live import Live
+from rich.prompt import Confirm, Prompt
 from rich.spinner import Spinner
 from rich.table import Table
 from rich.text import Text
@@ -239,6 +240,14 @@ class IpeConsole:
 
     def print(self, *args: Any, **kwargs: Any) -> None:
         self.console.print(*args, **kwargs)
+
+    def ask(self, prompt: str, default: str | None = None) -> str:
+        if default is None:
+            return Prompt.ask(prompt, console=self.console)
+        return Prompt.ask(prompt, default=default, console=self.console)
+
+    def confirm(self, prompt: str, *, default: bool = False) -> bool:
+        return Confirm.ask(prompt, default=default, console=self.console)
 
     def print_header(self) -> None:
         self.console.print(
