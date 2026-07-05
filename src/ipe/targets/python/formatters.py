@@ -66,9 +66,28 @@ class RuffFormatter:
         self._options = options
 
     def verify(self) -> None:
+        """Check that Ruff is available on the PATH.
+
+        Raises
+        ------
+        FormatterError
+            If Ruff is not installed or not on the PATH.
+        """
         _run(["ruff", "--version"])
 
     def format(self, output_dir: Path) -> None:
+        """Format and lint generated code in place with Ruff.
+
+        Parameters
+        ----------
+        output_dir : Path
+            The directory of generated files to format.
+
+        Raises
+        ------
+        FormatterError
+            If Ruff is missing or a Ruff invocation fails.
+        """
         options = dict(self._options)
         user_select = options.pop("select", None)
         user_ignore = options.pop("ignore", None)

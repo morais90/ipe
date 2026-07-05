@@ -12,6 +12,19 @@ ROOT_RESOURCE = "root"
 def by_tag(
     operations: list[StandardOperation],
 ) -> dict[str, list[StandardOperation]]:
+    """Group operations by their first tag, falling back to the path.
+
+    Parameters
+    ----------
+    operations : list[StandardOperation]
+        The operations to group.
+
+    Returns
+    -------
+    dict[str, list[StandardOperation]]
+        Operations keyed by resource name.
+    """
+
     def key(operation: StandardOperation) -> str:
         if operation.tags:
             return operation.tags[0].lower()
@@ -23,12 +36,36 @@ def by_tag(
 def by_path(
     operations: list[StandardOperation],
 ) -> dict[str, list[StandardOperation]]:
+    """Group operations by the first segment of their path.
+
+    Parameters
+    ----------
+    operations : list[StandardOperation]
+        The operations to group.
+
+    Returns
+    -------
+    dict[str, list[StandardOperation]]
+        Operations keyed by resource name.
+    """
     return _group_by(operations, lambda operation: _resource_from_path(operation.path))
 
 
 def by_nested_path(
     operations: list[StandardOperation],
 ) -> dict[str, list[StandardOperation]]:
+    """Group operations by their full nested path.
+
+    Parameters
+    ----------
+    operations : list[StandardOperation]
+        The operations to group.
+
+    Returns
+    -------
+    dict[str, list[StandardOperation]]
+        Operations keyed by dotted resource path.
+    """
     return _group_by(
         operations, lambda operation: _nested_resource_from_path(operation.path)
     )

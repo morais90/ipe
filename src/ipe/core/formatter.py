@@ -10,6 +10,16 @@ class FormatterConfig(BaseModel):
 
 
 class Formatter(Protocol):
-    def verify(self) -> None: ...
+    def verify(self) -> None:
+        """Check that the formatter is available for use."""
+        ...
 
-    def format(self, output_dir: Path) -> None: ...
+    def format(self, output_dir: Path) -> None:
+        """Format generated code in place.
+
+        Parameters
+        ----------
+        output_dir : Path
+            The directory of generated files to format.
+        """
+        ...

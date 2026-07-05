@@ -27,6 +27,27 @@ def parse_openapi(
     spec_dict: dict[str, Any],
     on_phase: Callable[[str], None] | None = None,
 ) -> OpenAPISpec:
+    """Validate and normalize a raw OpenAPI document.
+
+    Parameters
+    ----------
+    spec_dict : dict[str, Any]
+        The raw specification as parsed from YAML or JSON.
+    on_phase : Callable[[str], None], optional
+        Callback invoked with the name of each parsing phase.
+
+    Returns
+    -------
+    OpenAPISpec
+        The validated specification model.
+
+    Raises
+    ------
+    UnsupportedFeatureError
+        If the document is Swagger 2.0 or an unsupported OpenAPI version.
+    ValidationError
+        If the ``openapi`` field is missing or the structure is invalid.
+    """
     report = on_phase or (lambda _: None)
 
     _validate_version(spec_dict)

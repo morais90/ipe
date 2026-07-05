@@ -184,6 +184,13 @@ class Schema(OpenAPIBaseModel):
 
 
 def bind_schema_registry(schemas: dict[str, Schema]) -> None:
+    """Register component schemas for lazy ``$ref`` resolution.
+
+    Parameters
+    ----------
+    schemas : dict[str, Schema]
+        The component schemas keyed by name.
+    """
     _schema_registry.set(
         {f"#/components/schemas/{name}": schema for name, schema in schemas.items()}
     )

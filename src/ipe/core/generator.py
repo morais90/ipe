@@ -31,6 +31,22 @@ class CodeGenerator:
         on_phase: Callable[[str], None] | None = None,
         on_file: Callable[[Path], None] | None = None,
     ) -> GenerationResult:
+        """Generate code from a spec according to the given configuration.
+
+        Parameters
+        ----------
+        config : IpeConfig
+            The resolved generation configuration.
+        on_phase : Callable[[str], None], optional
+            Callback invoked with the name of each generation phase.
+        on_file : Callable[[Path], None], optional
+            Callback invoked with the path of each generated file.
+
+        Returns
+        -------
+        GenerationResult
+            A summary of what was generated.
+        """
         report = on_phase or (lambda _: None)
 
         target = self.registry.get(config.target)

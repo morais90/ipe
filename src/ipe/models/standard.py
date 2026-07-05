@@ -13,6 +13,18 @@ class ValidationRule(BaseModel):
 
     @classmethod
     def from_schema(cls, schema: openapi.Schema) -> list[ValidationRule]:
+        """Extract validation rules from an OpenAPI schema.
+
+        Parameters
+        ----------
+        schema : openapi.Schema
+            The schema to read constraint keywords from.
+
+        Returns
+        -------
+        list[ValidationRule]
+            One rule per constraint present on the schema.
+        """
         rules: list[ValidationRule] = []
         for attr, rule_type in _SCHEMA_VALIDATION_MAP:
             value = getattr(schema, attr, None)
@@ -46,6 +58,18 @@ class SecurityRequirement(BaseModel):
     def from_security(
         cls, raw: list[dict[str, list[str]]]
     ) -> list[SecurityRequirement]:
+        """Build security requirements from an OpenAPI security list.
+
+        Parameters
+        ----------
+        raw : list[dict[str, list[str]]]
+            The raw security requirement objects from the spec.
+
+        Returns
+        -------
+        list[SecurityRequirement]
+            One requirement per scheme reference.
+        """
         return [
             cls(scheme_name=name, scopes=scopes)
             for req in raw
@@ -72,6 +96,22 @@ class StandardProperty(BaseModel):
     def from_schema(
         cls, name: str, schema: openapi.Schema, required_fields: list[str]
     ) -> StandardProperty:
+        """Build a property from an OpenAPI schema.
+
+        Parameters
+        ----------
+        name : str
+            The property name.
+        schema : openapi.Schema
+            The schema describing the property.
+        required_fields : list[str]
+            The names of the parent model's required fields.
+
+        Returns
+        -------
+        StandardProperty
+            The language-agnostic property.
+        """
         enum_values = _extract_enum_values(schema)
         shape = _classify_schema(schema)
 
@@ -101,6 +141,21 @@ class StandardModel(BaseModel):
 
     @classmethod
     def from_schema(cls, name: str, schema: openapi.Schema) -> StandardModel | None:
+        """Build a model from an OpenAPI object schema.
+
+        Parameters
+        ----------
+        name : str
+            The model name.
+        schema : openapi.Schema
+            The schema describing the model.
+
+        Returns
+        -------
+        StandardModel or None
+            The model, or ``None`` when the schema is an array or a bare
+            reference rather than an object.
+        """
         if schema.type == "array" or schema.ref is not None:
             return None
 
@@ -136,6 +191,18 @@ class StandardParameter(BaseModel):
 
     @classmethod
     def from_parameter(cls, param: openapi.Parameter) -> StandardParameter:
+        """Build a parameter from an OpenAPI parameter.
+
+        Parameters
+        ----------
+        param : openapi.Parameter
+            The OpenAPI parameter to convert.
+
+        Returns
+        -------
+        StandardParameter
+            The language-agnostic parameter.
+        """
         schema = param.schema_ or openapi.Schema()
         enum_values = _extract_enum_values(schema)
         shape = _classify_schema(schema)
@@ -169,6 +236,18 @@ class RequestBody(BaseModel):
 
     @classmethod
     def from_request_body(cls, body: openapi.RequestBody) -> RequestBody | None:
+        """Build a request body from an OpenAPI request body.
+
+        Parameters
+        ----------
+        body : openapi.RequestBody
+            The OpenAPI request body to convert.
+
+        Returns
+        -------
+        RequestBody or None
+            The request body, or ``None`` when it has no usable content.
+        """
         if not body.content:
             return None
 
@@ -202,6 +281,20 @@ class Response(BaseModel):
 
     @classmethod
     def from_response(cls, status_code: str, resp: openapi.Response) -> Response:
+        """Build a response from an OpenAPI response.
+
+        Parameters
+        ----------
+        status_code : str
+            The HTTP status code the response is keyed under.
+        resp : openapi.Response
+            The OpenAPI response to convert.
+
+        Returns
+        -------
+        Response
+            The language-agnostic response.
+        """
         content_type = next(iter(resp.content), None) if resp.content else None
         schema: openapi.Schema | None = None
         if content_type and resp.content:
@@ -230,6 +323,20 @@ class AuthScheme(BaseModel):
     def from_security_scheme(
         cls, name: str, scheme: openapi.SecurityScheme
     ) -> AuthScheme:
+        """Build an auth scheme from an OpenAPI security scheme.
+
+        Parameters
+        ----------
+        name : str
+            The name the scheme is registered under.
+        scheme : openapi.SecurityScheme
+            The OpenAPI security scheme to convert.
+
+        Returns
+        -------
+        AuthScheme
+            The language-agnostic auth scheme.
+        """
         if scheme.type == "apiKey":
             return cls(
                 name=name,
@@ -285,6 +392,24 @@ class StandardOperation(BaseModel):
         operation: openapi.Operation,
         path_item: openapi.PathItem,
     ) -> StandardOperation:
+        """Build an operation from an OpenAPI operation.
+
+        Parameters
+        ----------
+        path : str
+            The path template the operation is served at.
+        method : str
+            The HTTP method.
+        operation : openapi.Operation
+            The OpenAPI operation to convert.
+        path_item : openapi.PathItem
+            The path item, used to merge path-level parameters.
+
+        Returns
+        -------
+        StandardOperation
+            The language-agnostic operation.
+        """
         merged_params = _merge_parameters(
             path_item.parameters or [], operation.parameters or []
         )

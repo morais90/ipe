@@ -1,5 +1,3 @@
-"""Configuration management for Ipê."""
-
 import json
 import keyword
 from pathlib import Path

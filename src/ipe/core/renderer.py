@@ -33,6 +33,26 @@ class TemplateTreeRenderer:
         custom_dir: Path | None = None,
         on_file: Callable[[Path], None] | None = None,
     ) -> list[Path]:
+        """Render a template tree to disk.
+
+        Parameters
+        ----------
+        template_dir : Path
+            The root of the target's template tree.
+        output_dir : Path
+            The directory generated files are written to.
+        context : dict[str, Any]
+            The rendering context shared by every template.
+        custom_dir : Path, optional
+            A directory of user templates that override the built-in ones.
+        on_file : Callable[[Path], None], optional
+            Callback invoked with the path of each rendered file.
+
+        Returns
+        -------
+        list[Path]
+            The paths of every file written.
+        """
         env = self._get_env(template_dir, custom_dir)
         written: list[Path] = []
 

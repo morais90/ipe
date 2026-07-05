@@ -10,6 +10,26 @@ _MAX_SPEC_BYTES = 25 * 1024 * 1024
 
 
 def fetch_spec(source: str) -> dict[str, Any]:
+    """Fetch and parse a spec from a file path or HTTPS URL.
+
+    Parameters
+    ----------
+    source : str
+        A local file path or an HTTP(S) URL.
+
+    Returns
+    -------
+    dict[str, Any]
+        The parsed specification document.
+
+    Raises
+    ------
+    NetworkError
+        If the URL cannot be fetched or is not served over HTTPS.
+    ValidationError
+        If the file is missing, cannot be decoded, or is not a valid
+        YAML/JSON object.
+    """
     if source.startswith(("https://", "http://")):
         return _fetch_url(source)
     return _fetch_file(source)
