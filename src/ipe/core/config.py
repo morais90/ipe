@@ -5,8 +5,9 @@ import keyword
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, ValidationError, field_validator
 
+from ipe.core.exceptions import ConfigurationError
 from ipe.core.formatter import FormatterConfig
 
 
@@ -115,29 +116,85 @@ def load_config(config_path: Path) -> IpeConfig:
 
     Raises
     ------
-    FileNotFoundError
-        If the configuration file does not exist.
-    ValueError
-        If the configuration file contains invalid JSON.
-    pydantic.ValidationError
-        If the configuration does not match the expected schema.
+    ConfigurationError
+        If the file is missing, is not valid JSON, or does not match the
+        expected schema.
     """
     if not config_path.exists():
-        raise FileNotFoundError(
-            f"Configuration file not found: {config_path}\n"
-            "Please create an 'ipe.json' file or run 'ipe init' to get started."
+        raise ConfigurationError(
+            f"Configuration file not found: {config_path}",
+            "Create an 'ipe.json' or run 'ipe init' to get started.",
+            config_path=str(config_path),
         )
 
     try:
         config_data = json.loads(config_path.read_text())
-    except json.JSONDecodeError as e:
-        raise ValueError(
-            f"Invalid JSON in configuration file: {config_path}\n"
-            f"Error at line {e.lineno}, column {e.colno}: {e.msg}\n"
-            "Please check your JSON syntax."
-        ) from e
+    except json.JSONDecodeError as exc:
+        raise ConfigurationError(
+            f"Invalid JSON in {config_path} at line {exc.lineno}, "
+            f"column {exc.colno}: {exc.msg}",
+            "Check the JSON syntax of the configuration file.",
+            config_path=str(config_path),
+        ) from exc
 
-    return IpeConfig.model_validate(config_data)
+    try:
+        return IpeConfig.model_validate(config_data)
+    except ValidationError as exc:
+        raise ConfigurationError(
+            f"Invalid configuration in {config_path}: {exc.errors()[0]['msg']}",
+            "Check the fields against the ipe.json schema.",
+            config_path=str(config_path),
+        ) from exc
+
+
+def resolve_config(
+    config_path: Path,
+    *,
+    spec: str | None = None,
+    output: Path | None = None,
+    target: str | None = None,
+    module_name: str | None = None,
+) -> IpeConfig:
+    """Resolve configuration from CLI overrides, ``ipe.json``, then defaults.
+
+    Parameters
+    ----------
+    config_path : Path
+        Path to the ``ipe.json`` file; used as the baseline when it exists.
+    spec : str, optional
+        CLI override for the spec path or URL.
+    output : Path, optional
+        CLI override for the output directory.
+    target : str, optional
+        CLI override for the language target.
+    module_name : str, optional
+        CLI override for the generated module name.
+
+    Returns
+    -------
+    IpeConfig
+        The merged configuration, with CLI overrides winning over the file,
+        and the file winning over built-in defaults.
+    """
+    base = load_config(config_path) if config_path.exists() else IpeConfig()
+    data = base.model_dump()
+
+    overrides = {
+        "spec_path": spec,
+        "output_dir": output,
+        "target": target,
+        "module_name": module_name,
+    }
+    data.update({key: value for key, value in overrides.items() if value is not None})
+
+    try:
+        return IpeConfig.model_validate(data)
+    except ValidationError as exc:
+        raise ConfigurationError(
+            f"Invalid configuration: {exc.errors()[0]['msg']}",
+            "Check the CLI options and the ipe.json fields.",
+            config_path=str(config_path),
+        ) from exc
 
 
 def create_default_config(

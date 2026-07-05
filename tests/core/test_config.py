@@ -5,7 +5,41 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from ipe.core.config import IpeConfig, create_default_config, load_config, save_config
+from ipe.core.config import (
+    IpeConfig,
+    create_default_config,
+    load_config,
+    resolve_config,
+    save_config,
+)
+from ipe.core.exceptions import ConfigurationError
+
+
+class TestResolveConfig:
+    def test_cli_overrides_win_over_file(self, tmp_path: Path):
+        config_path = tmp_path / "ipe.json"
+        config_path.write_text(
+            json.dumps(
+                {"spec_path": "file.yaml", "target": "python", "output_dir": "fout"}
+            )
+        )
+
+        result = resolve_config(config_path, spec="cli.yaml")
+
+        assert result.spec_path == "cli.yaml"
+        assert result.target == "python"
+        assert result.output_dir == Path("fout")
+
+    def test_falls_back_to_defaults_without_file(self, tmp_path: Path):
+        result = resolve_config(tmp_path / "missing.json", spec="x.yaml")
+
+        assert result.spec_path == "x.yaml"
+        assert result.target == "python"
+        assert result.output_dir == Path("output")
+
+    def test_invalid_override_raises_configuration_error(self, tmp_path: Path):
+        with pytest.raises(ConfigurationError, match="Invalid configuration"):
+            resolve_config(tmp_path / "missing.json", module_name="my-client")
 
 
 @pytest.fixture
@@ -127,14 +161,14 @@ class TestConfigLoading:
         assert config.targets == {"python": {"async": True}}
 
     def test_file_not_found(self):
-        with pytest.raises(FileNotFoundError, match="Configuration file not found"):
+        with pytest.raises(ConfigurationError, match="Configuration file not found"):
             load_config(Path("nonexistent.json"))
 
     def test_invalid_json(self, tmp_path: Path):
         config_path = tmp_path / "ipe.json"
         config_path.write_text("{invalid json}")
 
-        with pytest.raises(ValueError, match="Invalid JSON"):
+        with pytest.raises(ConfigurationError, match="Invalid JSON"):
             load_config(config_path)
 
     def test_invalid_module_name_on_load(self, tmp_path: Path):
@@ -142,7 +176,7 @@ class TestConfigLoading:
         config_path = tmp_path / "ipe.json"
         config_path.write_text(json.dumps(data))
 
-        with pytest.raises(ValidationError, match="invalid characters"):
+        with pytest.raises(ConfigurationError, match="invalid characters"):
             load_config(config_path)
 
 
