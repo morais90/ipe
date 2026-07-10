@@ -24,10 +24,34 @@ _SUCCESS_STATUSES = ("200", "201", "202", "203", "204")
 
 
 def pyval(value: Any) -> str:
+    """Render a Python literal for a value.
+
+    Parameters
+    ----------
+    value : Any
+        The value to render.
+
+    Returns
+    -------
+    str
+        The ``repr`` of the value.
+    """
     return repr(value)
 
 
 def success_response(responses: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """Pick the success response from an operation's responses.
+
+    Parameters
+    ----------
+    responses : list[dict[str, Any]]
+        The serialized responses.
+
+    Returns
+    -------
+    dict[str, Any] or None
+        The best 2xx response, or ``None`` when there is none.
+    """
     by_status = {r.get("status_code"): r for r in responses}
 
     for status in _SUCCESS_STATUSES:
@@ -108,14 +132,56 @@ class _ResponseView:
 
 
 def response_type(target: LanguageTarget, success: dict[str, Any] | None) -> str:
+    """Render the return type annotation for a success response.
+
+    Parameters
+    ----------
+    target : LanguageTarget
+        The active language target.
+    success : dict[str, Any] or None
+        The success response, if any.
+
+    Returns
+    -------
+    str
+        The Python type annotation.
+    """
     return _ResponseView(success, target).type_annotation()
 
 
 def response_deserialize(target: LanguageTarget, success: dict[str, Any] | None) -> str:
+    """Render the expression that deserializes a success response.
+
+    Parameters
+    ----------
+    target : LanguageTarget
+        The active language target.
+    success : dict[str, Any] or None
+        The success response, if any.
+
+    Returns
+    -------
+    str
+        The deserialization expression.
+    """
     return _ResponseView(success, target).deserialize_expression()
 
 
 def type_imports(target: LanguageTarget, properties: list[dict[str, Any]]) -> str:
+    """Render the value imports needed by a model's field types.
+
+    Parameters
+    ----------
+    target : LanguageTarget
+        The active language target.
+    properties : list[dict[str, Any]]
+        The model's serialized properties.
+
+    Returns
+    -------
+    str
+        The joined import statements.
+    """
     tokens = _collect_field_tokens(target, properties)
     return _build_imports_from_tokens(tokens)
 
@@ -125,6 +191,22 @@ def model_imports(
     model: dict[str, Any],
     module_name: str,
 ) -> str:
+    """Render the imports needed by a generated model module.
+
+    Parameters
+    ----------
+    target : LanguageTarget
+        The active language target.
+    model : dict[str, Any]
+        The serialized model.
+    module_name : str
+        The generated package's module name.
+
+    Returns
+    -------
+    str
+        The joined import blocks, including forward references.
+    """
     properties = model.get("properties") or []
 
     tokens = _collect_field_tokens(target, properties)
@@ -170,6 +252,20 @@ def _forward_ref_imports(
 
 
 def param_type_imports(target: LanguageTarget, operations: list[dict[str, Any]]) -> str:
+    """Render the value imports needed by operation parameter and body types.
+
+    Parameters
+    ----------
+    target : LanguageTarget
+        The active language target.
+    operations : list[dict[str, Any]]
+        The serialized operations.
+
+    Returns
+    -------
+    str
+        The joined import statements.
+    """
     params = [p for op in operations for p in op.get("parameters", [])]
     tokens = _collect_field_tokens(target, params)
 
@@ -212,6 +308,22 @@ def resource_imports(
     operations: list[dict[str, Any]],
     module_name: str,
 ) -> str:
+    """Render every import a generated resource module needs.
+
+    Parameters
+    ----------
+    target : LanguageTarget
+        The active language target.
+    operations : list[dict[str, Any]]
+        The serialized operations in the resource.
+    module_name : str
+        The generated package's module name.
+
+    Returns
+    -------
+    str
+        The joined import blocks.
+    """
     sections = [
         param_type_imports(target, operations),
         _response_imports_block(target, operations, module_name),
@@ -347,6 +459,20 @@ _CONTENT_TYPE_KWARG = {
 
 
 def body_type(target: LanguageTarget, body: dict[str, Any] | None) -> str:
+    """Render the type annotation for a request body.
+
+    Parameters
+    ----------
+    target : LanguageTarget
+        The active language target.
+    body : dict[str, Any] or None
+        The serialized request body, if any.
+
+    Returns
+    -------
+    str
+        The Python type annotation.
+    """
     if not body:
         return "None"
 
@@ -373,6 +499,19 @@ def _render_bodyless_type(target: LanguageTarget, body: dict[str, Any]) -> str:
 
 
 def body_call_arg(body: dict[str, Any] | None) -> str:
+    """Render the transport keyword argument that sends the request body.
+
+    Parameters
+    ----------
+    body : dict[str, Any] or None
+        The serialized request body, if any.
+
+    Returns
+    -------
+    str
+        The keyword argument expression, or an empty string when there is
+        no body.
+    """
     if not body:
         return ""
 
@@ -408,6 +547,21 @@ _RULE_TO_FIELD_ARG: dict[str, str] = {
 
 
 def field_type(target: LanguageTarget, prop: dict[str, Any]) -> str:
+    """Render the type annotation for a model field.
+
+    Parameters
+    ----------
+    target : LanguageTarget
+        The active language target.
+    prop : dict[str, Any]
+        The serialized property.
+
+    Returns
+    -------
+    str
+        The Python type annotation, wrapped in ``Annotated`` when the field
+        carries validation rules.
+    """
     base = _resolve_base_type(target, prop)
     args = _field_args(prop.get("validation_rules") or [])
 

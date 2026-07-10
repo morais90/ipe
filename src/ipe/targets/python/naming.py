@@ -20,13 +20,61 @@ def _safe_name(name: str) -> str:
 
 class PythonNaming:
     def class_name(self, raw: str) -> str:
+        """Convert a raw name to a Python class name in ``PascalCase``.
+
+        Parameters
+        ----------
+        raw : str
+            The raw identifier to convert.
+
+        Returns
+        -------
+        str
+            The class name.
+        """
         return to_pascal_case(raw)
 
     def method_name(self, raw: str) -> str:
+        """Convert a raw name to a safe Python method name in ``snake_case``.
+
+        Parameters
+        ----------
+        raw : str
+            The raw identifier to convert.
+
+        Returns
+        -------
+        str
+            The method name, sanitized to a valid identifier.
+        """
         return _safe_name(to_snake_case(raw))
 
     def field_name(self, raw: str) -> str:
+        """Convert a raw name to a safe Python field name in ``snake_case``.
+
+        Parameters
+        ----------
+        raw : str
+            The raw identifier to convert.
+
+        Returns
+        -------
+        str
+            The field name, sanitized to a valid identifier.
+        """
         return _safe_name(to_snake_case(raw))
 
     def module_name(self, raw: str) -> str:
+        """Convert a raw name to a safe Python module name in ``snake_case``.
+
+        Parameters
+        ----------
+        raw : str
+            The raw identifier to convert.
+
+        Returns
+        -------
+        str
+            The module name, sanitized to a valid identifier.
+        """
         return _safe_name(to_snake_case(raw))

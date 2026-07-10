@@ -38,13 +38,29 @@ class PythonTarget:
 
     @property
     def name(self) -> str:
+        """The target's identifier."""
         return "python"
 
     @property
     def naming(self) -> PythonNaming:
+        """The naming convention for this target."""
         return self._naming
 
     def resolve_type(self, schema_type: str, schema_format: str | None) -> str:
+        """Map an OpenAPI type and format to a Python type.
+
+        Parameters
+        ----------
+        schema_type : str
+            The OpenAPI schema type.
+        schema_format : str or None
+            The OpenAPI schema format, if any.
+
+        Returns
+        -------
+        str
+            The corresponding Python type, or ``"Any"`` when unknown.
+        """
         return TYPE_MAP.get(
             (schema_type, schema_format),
             TYPE_MAP.get((schema_type, None), "Any"),
@@ -53,22 +69,66 @@ class PythonTarget:
     def group(
         self, operations: list[StandardOperation]
     ) -> dict[str, list[StandardOperation]]:
+        """Group operations into resources by their nested path.
+
+        Parameters
+        ----------
+        operations : list[StandardOperation]
+            The operations to group.
+
+        Returns
+        -------
+        dict[str, list[StandardOperation]]
+            Operations keyed by dotted resource path.
+        """
         return by_nested_path(operations)
 
     @property
     def template_dir(self) -> Path:
+        """The root directory of this target's templates."""
         return Path(__file__).parent / "templates"
 
     def get_default_config(self) -> dict[str, Any]:
+        """Return the target's default configuration options.
+
+        Returns
+        -------
+        dict[str, Any]
+            The default Python target options.
+        """
         return {
             "client_library": "httpx",
             "async_support": True,
         }
 
     def default_formatter(self) -> FormatterConfig | None:
+        """Return the target's default formatter configuration.
+
+        Returns
+        -------
+        FormatterConfig or None
+            The Ruff formatter configuration.
+        """
         return FormatterConfig(name="ruff")
 
     def make_formatter(self, config: FormatterConfig) -> Formatter:
+        """Build a formatter from its configuration.
+
+        Parameters
+        ----------
+        config : FormatterConfig
+            The formatter configuration.
+
+        Returns
+        -------
+        Formatter
+            The constructed formatter.
+
+        Raises
+        ------
+        IpeError
+            If the named formatter is not supported by the Python target.
+        """
         builders: dict[str, Callable[[dict[str, Any]], Formatter]] = {
             "ruff": RuffFormatter,
         }
@@ -84,6 +144,13 @@ class PythonTarget:
         return builder(config.options)
 
     def filters(self) -> dict[str, Callable[..., Any]]:
+        """Return the Jinja filters this target provides.
+
+        Returns
+        -------
+        dict[str, Callable[..., Any]]
+            Filter functions keyed by their template name.
+        """
         return {
             "resolve_type": self.resolve_type,
             "pyval": filters.pyval,

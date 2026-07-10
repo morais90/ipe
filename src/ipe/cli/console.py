@@ -74,14 +74,29 @@ class BloomingTree:
         self._finished = False
 
     def start_phase(self, name: str) -> None:
+        """Begin tracking a new generation phase.
+
+        Parameters
+        ----------
+        name : str
+            The name of the phase now in progress.
+        """
         self._current_phase = name
         self._current_start = time.monotonic()
         self._current_files = 0
 
     def add_file(self, _: Path) -> None:
+        """Record that a file was produced in the current phase.
+
+        Parameters
+        ----------
+        _ : Path
+            The path of the generated file (unused).
+        """
         self._current_files += 1
 
     def finish(self) -> None:
+        """Mark generation as complete and fully bloom the tree."""
         self._finished = True
         self._current_phase = None
 
@@ -163,9 +178,23 @@ class GenerationProgress:
         self._tree = tree
 
     def on_phase(self, name: str) -> None:
+        """Report that a new phase has started.
+
+        Parameters
+        ----------
+        name : str
+            The name of the phase now in progress.
+        """
         self._tree.start_phase(name)
 
     def on_file(self, path: Path) -> None:
+        """Report that a file was generated.
+
+        Parameters
+        ----------
+        path : Path
+            The path of the generated file.
+        """
         self._tree.add_file(path)
 
 
@@ -180,6 +209,22 @@ class IpeConsole:
         target: str,
         spec_path: str,
     ) -> Iterator[GenerationProgress]:
+        """Display a live blooming-tree progress view during generation.
+
+        Parameters
+        ----------
+        version : str
+            The Ipê version to show in the banner.
+        target : str
+            The language target being generated.
+        spec_path : str
+            Path or URL of the spec being generated from.
+
+        Yields
+        ------
+        GenerationProgress
+            A handle for reporting phase and file progress.
+        """
         tree = BloomingTree(version, target, spec_path)
         progress = GenerationProgress(tree)
         self.console.print()
@@ -200,6 +245,25 @@ class IpeConsole:
         output_path: str,
         duration: float,
     ) -> None:
+        """Print a summary of a completed generation run.
+
+        Parameters
+        ----------
+        api_name : str
+            The name of the generated API.
+        operations : int
+            The number of operations generated.
+        models : int
+            The number of models generated.
+        resources : int
+            The number of resource groups generated.
+        files : int
+            The number of files written.
+        output_path : str
+            The directory the code was written to.
+        duration : float
+            The total generation time in seconds.
+        """
         self.console.print(
             Text.assemble(
                 ("  ❀── ", "bold yellow"),
@@ -230,26 +294,85 @@ class IpeConsole:
         )
 
     def error(self, message: str) -> None:
+        """Print an error message.
+
+        Parameters
+        ----------
+        message : str
+            The error text to display.
+        """
         self.console.print(Text.assemble(("✗  ", "bold red"), (message, "red")))
 
     def info(self, message: str) -> None:
+        """Print an informational message.
+
+        Parameters
+        ----------
+        message : str
+            The text to display.
+        """
         self.console.print(Text.assemble(("> ", "blue"), message))
 
     def warning(self, message: str) -> None:
+        """Print a warning message.
+
+        Parameters
+        ----------
+        message : str
+            The warning text to display.
+        """
         self.console.print(Text.assemble(("!  ", "bold yellow"), (message, "yellow")))
 
     def print(self, *args: Any, **kwargs: Any) -> None:
+        """Print renderables to the console.
+
+        Parameters
+        ----------
+        *args : Any
+            Positional renderables passed through to Rich.
+        **kwargs : Any
+            Keyword arguments passed through to Rich.
+        """
         self.console.print(*args, **kwargs)
 
     def ask(self, prompt: str, default: str | None = None) -> str:
+        """Prompt the user for a text value.
+
+        Parameters
+        ----------
+        prompt : str
+            The question to display.
+        default : str, optional
+            The value returned when the user enters nothing.
+
+        Returns
+        -------
+        str
+            The user's response.
+        """
         if default is None:
             return Prompt.ask(prompt, console=self.console)
         return Prompt.ask(prompt, default=default, console=self.console)
 
     def confirm(self, prompt: str, *, default: bool = False) -> bool:
+        """Prompt the user for a yes/no answer.
+
+        Parameters
+        ----------
+        prompt : str
+            The question to display.
+        default : bool, optional
+            The answer returned when the user enters nothing.
+
+        Returns
+        -------
+        bool
+            The user's confirmation.
+        """
         return Confirm.ask(prompt, default=default, console=self.console)
 
     def print_header(self) -> None:
+        """Print the Ipê banner header."""
         self.console.print(
             Text.assemble(
                 ("❀  ", "bold yellow"),

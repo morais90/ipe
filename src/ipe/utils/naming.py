@@ -7,6 +7,18 @@ _MULTI_UNDERSCORE = re.compile(r"_+")
 
 
 def to_snake_case(raw: str) -> str:
+    """Convert a string to ``snake_case``.
+
+    Parameters
+    ----------
+    raw : str
+        The string to convert.
+
+    Returns
+    -------
+    str
+        The ``snake_case`` form, or an empty string when ``raw`` is empty.
+    """
     if not raw:
         return ""
 
@@ -18,6 +30,18 @@ def to_snake_case(raw: str) -> str:
 
 
 def to_pascal_case(raw: str) -> str:
+    """Convert a string to ``PascalCase``.
+
+    Parameters
+    ----------
+    raw : str
+        The string to convert.
+
+    Returns
+    -------
+    str
+        The ``PascalCase`` form, or an empty string when ``raw`` is empty.
+    """
     if not raw:
         return ""
 

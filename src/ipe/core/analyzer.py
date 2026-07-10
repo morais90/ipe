@@ -19,6 +19,20 @@ class SpecAnalyzer:
         spec_path: str,
         on_phase: Callable[[str], None] | None = None,
     ) -> OpenAPISpec:
+        """Fetch and parse an OpenAPI specification.
+
+        Parameters
+        ----------
+        spec_path : str
+            Path or URL to the OpenAPI specification.
+        on_phase : Callable[[str], None], optional
+            Callback invoked with the name of each parsing phase.
+
+        Returns
+        -------
+        OpenAPISpec
+            The parsed and validated specification.
+        """
         report = on_phase or (lambda _: None)
 
         report("Loading spec")
@@ -27,6 +41,20 @@ class SpecAnalyzer:
         return parse_openapi(raw, on_phase=on_phase)
 
     def extract(self, spec: OpenAPISpec, config: IpeConfig) -> APIBlueprint:
+        """Build a language-agnostic blueprint from a parsed spec.
+
+        Parameters
+        ----------
+        spec : OpenAPISpec
+            The parsed OpenAPI specification.
+        config : IpeConfig
+            The active configuration, used for module naming and target options.
+
+        Returns
+        -------
+        APIBlueprint
+            The extracted representation of the API.
+        """
         server_urls = [s.url for s in spec.servers] if spec.servers else []
         operations, body_schemas = self._operations_and_body_schemas(spec)
 
